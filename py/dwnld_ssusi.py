@@ -7,12 +7,12 @@ import dwnld_ssusi
 import zlib
 
 if __name__ == "__main__":
-    ssObj = dwnld_ssusi.SSUSSIDownload()
+    ssObj = dwnld_ssusi.SSUSIDownload()
     inpDate = datetime.datetime( 2014, 12, 16 )
     dataTypeList = [ "sdr" ]#, "l1b", "edr-aur" ]
     ssObj.download_files(inpDate, dataTypeList)
 
-class SSUSSIDownload(object):
+class SSUSIDownload(object):
     """
     A class to Download SSUSI data
     given a date and datatype!
@@ -58,6 +58,12 @@ class SSUSSIDownload(object):
                     # we only need data files which have .NC
                     if ".NC" not in fUrl:
                         continue
+                    # If working with sdr data use only
+                    # sdr-disk files
+                    if dataType == "sdr":
+                        if "SDR-DISK" not in fUrl:
+                            continue
+
                     print "currently downloading-->", fUrl
                     rf = requests.get( fUrl, verify=False )
                     currFName = rf.url.split("/")[-1]
