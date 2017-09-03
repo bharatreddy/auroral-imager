@@ -6,11 +6,14 @@ import numpy
 import datetime
 import matplotlib.pyplot as plt
 import read_ssusi
+from davitpy.utils import *
+
 
 if __name__ == "__main__":
     inpDirs = [ "../data/sdr/f18/20141216/" ]
     ssRdObj = read_ssusi.ReadData( inpDirs )
-    ssRdObj.read_data()
+    ssDF = ssRdObj.read_data()
+    ssRdObj.plot_ssusi_data( ssDF )
 
 class ReadData(object):
     """
@@ -60,5 +63,25 @@ class ReadData(object):
                           'date':dateArr.ravel()})
             break
         return ssusiDF
+
+    def plot_ssusi_data(self, ssusiDF, plotType='di121',\
+                     figName="../figs/ssusi-test.pdf"):
+        """
+        Plot SSUSI data on a map
+        """
+        fig = plt.figure(figsize=(12, 8))
+        ax = fig.add_subplot(1,1,1)
+        m = plotUtils.mapObj(boundinglat=10., coords='geo')
+
+        # p = m.pcolormesh(ssusiDF["glon"].values, ssusiDF["glat"].values,\
+        #                  ssusiDF[plotType].values, latlon=True,\
+        #                   zorder=1.9, vmin=0, vmax=1000,\
+        #                    ax=ax, alpha=1, cmap='Greens')
+        p = m.scatter( ssusiDF["glon"].values, ssusiDF["glat"].values,\
+                         c=ssusiDF[plotType].values, latlon=True,\
+                          zorder=1.9, vmin=0, vmax=1000,\
+                           ax=ax, alpha=1, cmap='Greens' )
+        # p.set_rasterized(True)
+        fig.savefig(figName,bbox_inches='tight')
 
 
