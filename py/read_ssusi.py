@@ -36,5 +36,14 @@ class ReadData(object):
             currDataSet = netCDF4.Dataset(currFile)
             print currFile
             print currDataSet.variables["TIME_DAY"].shape
+
+            epochList = currDataSet.variables["TIME_EPOCH_DAY"][:]
+            # account for difference in seconds between
+            # CDF epoch and python's epoch, leap year in there
+            # (datetime(1971,1,2) - 
+            #      datetime(1,1,1)).total_seconds()*1000
+            epochList = epochList - 62167219200000
+            a = epochList[0]
+            print datetime.datetime.fromtimestamp(a/1e3)
             break
 
