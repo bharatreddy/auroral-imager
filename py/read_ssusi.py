@@ -13,7 +13,7 @@ if __name__ == "__main__":
     inpDirs = [ "../data/sdr/f18/20141216/" ]
     outDir = "/home/bharat/Documents/code/auroral-imager/data/processed/"
     ssRdObj = read_ssusi.ProcessData( inpDirs, outDir )
-    ssRdObj.process_to_file()
+    ssRdObj.processed_data_to_file()
     # ssRdObj.plot_ssusi_data( ssusiDF )
 
 class ProcessData(object):
@@ -34,7 +34,7 @@ class ProcessData(object):
                     self.fileList.append( root + fName )
         self.outDir = outDir
 
-    def process_to_file(self):
+    def processed_data_to_file(self):
         """
         read the required data into a dataframe
         select only required columns, convert to
@@ -110,7 +110,7 @@ class ProcessData(object):
             mlatColList = [ "mlat." + str(cNum+1) for cNum in range(prpntLats.shape[0]) ]
             mlonColList = [ "mlon." + str(cNum+1) for cNum in range(prpntLats.shape[0]) ]
             mltColList = [ "mlt." + str(cNum+1) for cNum in range(prpntLats.shape[0]) ]
-            outCols = ["date", "sat", "orbitNum"] + mlatColList + mlonColList + mltColList + d121ColList + \
+            outCols = ["date", "sat", "orbitNum"] + latColList + lonColList + mltColList + d121ColList + \
                         d130ColList + d135ColList + dLBHSColList + dLBHLColList
             ssusiDF = ssusiDF[ outCols ]
             # We now need to write the processed data to a file
