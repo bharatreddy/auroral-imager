@@ -12,8 +12,8 @@ from davitpy.utils import *
 if __name__ == "__main__":
     inpDirs = [ "../data/sdr/f18/20141216/" ]
     ssRdObj = read_ssusi.ReadData( inpDirs )
-    (prpntLons, prpntLats, dskInt121) = ssRdObj.read_data()
-    ssRdObj.plot_ssusi_data( prpntLons, prpntLats, dskInt121 )
+    (prpntLons, prpntLats, dskInt135) = ssRdObj.read_data()
+    ssRdObj.plot_ssusi_data( prpntLons, prpntLats, dskInt135 )
 
 class ReadData(object):
     """
@@ -36,7 +36,10 @@ class ReadData(object):
         """
         read the required data into a dataframe
         """
+        selFname = "PS.APL_V0116S024CB0005_SC.U_DI.A_GP.F18-SSUSI_PA.APL-SDR-DISK_DD.20141216_SN.26612-00_DF.NC"
         for currFile in self.fileList:
+            if selFname not in currFile:
+                continue
             currDataSet = netCDF4.Dataset(currFile)
             # get datetime from epoch list
             dtList = numpy.array( [ datetime.datetime( *EPOCHbreakdown( e ) ) \
@@ -66,9 +69,9 @@ class ReadData(object):
                           'diLBHS': dskIntLBHS.ravel(),'diLBHL': dskIntLBHL.ravel(),\
                           'date':dateArr.ravel(), 'orbit':orbitNumArr.ravel() })
             break
-        return (prpntLons, prpntLats, dskInt121)#ssusiDF
+        return (prpntLons, prpntLats, dskInt135)#ssusiDF
 
-    def plot_ssusi_data(self, prpntLons, prpntLats, dskInt121, plotType='di121', coords="geo",\
+    def plot_ssusi_data(self, prpntLons, prpntLats, dskInt135, plotType='di121', coords="geo",\
                      figName="../figs/ssusi-test.pdf"):
         """
         Plot SSUSI data on a map
@@ -77,7 +80,7 @@ class ReadData(object):
         ax = fig.add_subplot(1,1,1)
         m = plotUtils.mapObj(boundinglat=10., coords=coords)
 
-        p = m.pcolormesh(prpntLons, prpntLats, dskInt121, latlon=True,\
+        p = m.pcolormesh(prpntLons, prpntLats, dskInt135, latlon=True,\
                           zorder=1.9, vmin=0, vmax=1000,\
                            ax=ax, alpha=1, cmap='Greens')
         # p = m.scatter( ssusiDF["glon"].values, ssusiDF["glat"].values,\
