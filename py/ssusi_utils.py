@@ -12,10 +12,15 @@ import matplotlib.pyplot as plt
 if __name__ == "__main__":
     inpDir = "../data/processed/"
     fileDate = datetime.datetime( 2014, 12, 16 )
-    inpTime = datetime.datetime( 2014, 12, 16, 11, 30 )
+    inpTime = datetime.datetime( 2014, 12, 16, 20, 30 )
     ssObj = ssusi_utils.UtilsSsusi( inpDir, fileDate )
     fDict = ssObj.filter_data(inpTime)
-    ssObj.plot_ind_sat_data( fDict )
+    fig = plt.figure(figsize=(12, 8))
+    ax = fig.add_subplot(1,1,1)
+    m = utils.plotUtils.mapObj(boundinglat=40., coords="mag")
+    ssObj.plot_ind_sat_data( fDict, m, ax, satList=[ "F18"] )
+    figName = "../figs/ssusi-sats.pdf" 
+    fig.savefig(figName,bbox_inches='tight')
 
 class UtilsSsusi(object):
     """
@@ -92,20 +97,22 @@ class UtilsSsusi(object):
         return filteredDict
         
 
-    def plot_ind_sat_data(self, filteredDict, plotType='d135', coords="mag",\
-                     outDir="../figs/", overlayTime=True, overlayTimeInterval=10,\
-                     timeMarker='D', timeMarkerSize=2.,timeColor="grey"):
+    def plot_ind_sat_data(self, filteredDict, mapHandle, ax,\
+                        satList=["F18", "F17", "F16"], plotType='d135',\
+                        overlayTime=True, overlayTimeInterval=10, timeMarker='D',\
+                        timeMarkerSize=2., timeColor="grey", timeFontSize=8.):
         """
         Plot SSUSI data on a map
         # overlayTimeInterval is in minutes
         """
         # Loop through and read data
         for key in filteredDict.keys():
-            fig = plt.figure(figsize=(12, 8))
-            ax = fig.add_subplot(1,1,1)
-            m = utils.plotUtils.mapObj(boundinglat=40., coords=coords)
             ssusiDF = filteredDict[key]
-            # p = m.pcolormesh(ssusiDF["glon"].values.reshape(42,1632), \
+            satNameKey= key[-3:]
+            if satNameKey not in satList:
+                continue
+            # print satNameKey, ssusiDF["sat"].values[0]
+            # p = mapHandle.pcolormesh(ssusiDF["glon"].values.reshape(42,1632), \
             #                 ssusiDF["glat"].values.reshape(42,1632),\
             #                 ssusiDF[plotType].values.reshape(42,1632),\
             #                 latlon=True, zorder=1.9,
@@ -129,10 +136,11 @@ class UtilsSsusi(object):
             vmax = numpy.round( numpy.max( ssusiDisk )/500. )*500.
             if vmax > 1000.:
                 vmax = 1000.
-            xVecs, yVecs = m(ssusiMlons, ssusiMlats, coords="mag")
-            p = m.scatter(xVecs, yVecs, c=ssusiDisk, s=10.,\
+            xVecs, yVecs = mapHandle(ssusiMlons, ssusiMlats, coords="mag")
+            p = mapHandle.scatter(xVecs, yVecs, c=ssusiDisk, s=10.,\
                        cmap="Greens", alpha=0.7, zorder=5., \
-                                 edgecolor='none', marker="s", vmin=0., vmax=1000.)
+                                 edgecolor='none', marker="s",\
+                                  vmin=0., vmax=1000.)
             p.set_rasterized(True)
             # overlay time
             if overlayTime:
@@ -154,16 +162,12 @@ class UtilsSsusi(object):
                             [ssusiDF.columns[pandas.Series(\
                             ssusiDF.columns).str.startswith('mlon')\
                             ]].values
-                    xTVecs, yTVecs = m(timeSSusiMlons, timeSSusiMlats, coords="mag")
-                    m.plot(xTVecs, yTVecs,\
+                    xTVecs, yTVecs = mapHandle(timeSSusiMlons, timeSSusiMlats, coords="mag")
+                    mapHandle.plot(xTVecs, yTVecs,\
                          marker=timeMarker,color=timeColor,\
                           markersize=timeMarkerSize, zorder=7.)
                     timeStr = pandas.to_datetime(uniqueTimeList[tt]).strftime("%H:%M")
-                    timeXVecs, timeYVecs = m(timeSSusiMlons[-1][-1],\
+                    timeXVecs, timeYVecs = mapHandle(timeSSusiMlons[-1][-1],\
                          timeSSusiMlats[-1][-1], coords="mag")
-                    ax.text(timeXVecs, timeYVecs, timeStr,fontsize=10,fontweight='bold',
-                        ha='left',va='center',color='k', clip_on=True)
-            # filename is same as the key/DF name
-            figName = outDir + key + ".pdf"
-            fig.savefig(figName,bbox_inches='tight')
-            print "file saved--->", figName
+                    ax.text(timeXVecs, timeYVecs, timeStr,fontsize=timeFontSize,fontweight='bold',
+                        ha='left',va='center',color='k', clip_on=True, zorder=7.)
