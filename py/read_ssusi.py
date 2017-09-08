@@ -7,11 +7,12 @@ import datetime
 import matplotlib.pyplot as plt
 import read_ssusi
 import aacgmv2
+# from davitpy import utils
 
 
 if __name__ == "__main__":
     inpDirs = [ "../data/sdr/f18/20141216/" ]
-    outDir = "/home/bharat/Documents/code/auroral-imager/data/processed/"
+    outDir = "../data/processed/"
     ssRdObj = read_ssusi.ProcessData( inpDirs, outDir )
     ssRdObj.processed_data_to_file()
     # ssRdObj.plot_ssusi_data( ssusiDF )
@@ -110,7 +111,7 @@ class ProcessData(object):
             mlatColList = [ "mlat." + str(cNum+1) for cNum in range(prpntLats.shape[0]) ]
             mlonColList = [ "mlon." + str(cNum+1) for cNum in range(prpntLats.shape[0]) ]
             mltColList = [ "mlt." + str(cNum+1) for cNum in range(prpntLats.shape[0]) ]
-            outCols = ["date", "sat", "orbitNum"] + latColList + lonColList + mltColList + d121ColList + \
+            outCols = ["date", "sat", "orbitNum"] + mlatColList + mlonColList + mltColList + d121ColList + \
                         d130ColList + d135ColList + dLBHSColList + dLBHLColList
             ssusiDF = ssusiDF[ outCols ]
             # We now need to write the processed data to a file
@@ -118,7 +119,7 @@ class ProcessData(object):
                 os.makedirs(self.outDir + "/" + satName)
             # if the file for the date exists append data
             # else create the file and write data!!!
-            outFileName = self.outDir + "/" + satName + "/" + currDate + ".txt"
+            outFileName = self.outDir + "/" + satName + "/" + currDate + "-mag2.txt"
             if not os.path.exists( outFileName ):
                 # NOTE we only need header when writing data for the first time!
                 with open(outFileName, 'w') as ftB:
@@ -140,6 +141,9 @@ class ProcessData(object):
             indStr = str(i+1)
             mlat, mlon = aacgmv2.convert(row["glat." + indStr], row["glon." + indStr],\
                                300, row["date"])
+            # mlon, mlat = utils.coord_conv( row["glon." + indStr], row["glat." + indStr], \
+            #                      "geo", "mag", altitude=300., \
+            #                      date_time=row["date"] )
             mlt = aacgmv2.convert_mlt(mlon, row["date"], m2a=False)
             row["mlat." + indStr] = numpy.round( mlat, 2)
             row["mlon." + indStr] = numpy.round( mlon, 2)
