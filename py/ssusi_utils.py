@@ -111,13 +111,6 @@ class UtilsSsusi(object):
             satNameKey= key[-3:]
             if satNameKey not in satList:
                 continue
-            # print satNameKey, ssusiDF["sat"].values[0]
-            # p = mapHandle.pcolormesh(ssusiDF["glon"].values.reshape(42,1632), \
-            #                 ssusiDF["glat"].values.reshape(42,1632),\
-            #                 ssusiDF[plotType].values.reshape(42,1632),\
-            #                 latlon=True, zorder=1.9,
-            #                 vmin=0, vmax=vmax,
-            #                 ax=ax, alpha=1, cmap='Greens')
             ssusiMlats = ssusiDF\
                             [ssusiDF.columns[pandas.Series(\
                             ssusiDF.columns).str.startswith('mlat')\
@@ -141,6 +134,11 @@ class UtilsSsusi(object):
                        cmap="Greens", alpha=0.7, zorder=5., \
                                  edgecolor='none', marker="s",\
                                   vmin=0., vmax=1000.)
+            # p = mapHandle.pcolormesh(ssusiMlats, ssusiMlons,\
+            #                 ssusiDisk,\
+            #                 latlon=True, zorder=1.9,
+            #                 vmin=0, vmax=vmax,
+            #                 ax=ax, alpha=1, cmap='Greens')
             p.set_rasterized(True)
             # overlay time
             if overlayTime:
@@ -162,12 +160,15 @@ class UtilsSsusi(object):
                             [ssusiDF.columns[pandas.Series(\
                             ssusiDF.columns).str.startswith('mlon')\
                             ]].values
-                    xTVecs, yTVecs = mapHandle(timeSSusiMlons, timeSSusiMlats, coords="mag")
+                    xTVecs, yTVecs = mapHandle(timeSSusiMlons,\
+                                     timeSSusiMlats, coords="mag")
                     mapHandle.plot(xTVecs, yTVecs,\
                          marker=timeMarker,color=timeColor,\
                           markersize=timeMarkerSize, zorder=7.)
                     timeStr = pandas.to_datetime(uniqueTimeList[tt]).strftime("%H:%M")
                     timeXVecs, timeYVecs = mapHandle(timeSSusiMlons[-1][-1],\
                          timeSSusiMlats[-1][-1], coords="mag")
-                    ax.text(timeXVecs, timeYVecs, timeStr,fontsize=timeFontSize,fontweight='bold',
-                        ha='left',va='center',color='k', clip_on=True, zorder=7.)
+                    ax.text(timeXVecs, timeYVecs, timeStr,\
+                        fontsize=timeFontSize,fontweight='bold',
+                        ha='left',va='center',color='k',\
+                         clip_on=True, zorder=7.)
