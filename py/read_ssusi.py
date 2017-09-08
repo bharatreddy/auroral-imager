@@ -11,9 +11,10 @@ import aacgmv2
 
 
 if __name__ == "__main__":
-    inpDirs = [ "../data/sdr/f18/20141216/" ]
+    inpDirs = [ "../data/sdr/f16/20141216/" ]
+    inpDate = datetime.datetime( 2014,12,16 )
     outDir = "../data/processed/"
-    ssRdObj = read_ssusi.ProcessData( inpDirs, outDir )
+    ssRdObj = read_ssusi.ProcessData( inpDirs, outDir, inpDate )
     ssRdObj.processed_data_to_file()
     # ssRdObj.plot_ssusi_data( ssusiDF )
 
@@ -22,7 +23,7 @@ class ProcessData(object):
     A class to Download SSUSI data
     given a date and datatype!
     """
-    def __init__(self, inpDirs, outDir):
+    def __init__(self, inpDirs, outDir, inpDate):
         """
         Given a list of dirs (SSUSI has multiple files per date
         for the same satellite). Read all files from it.
@@ -34,6 +35,7 @@ class ProcessData(object):
                 for fNum, fName in enumerate(files):
                     self.fileList.append( root + fName )
         self.outDir = outDir
+        self.inpDate = inpDate
 
     def processed_data_to_file(self):
         """
@@ -57,9 +59,7 @@ class ProcessData(object):
             # get datetime from epoch list
             dtList = numpy.array( [ datetime.datetime( *EPOCHbreakdown( e ) ) \
                         for e in currDataSet.variables["TIME_EPOCH_DAY"][:] ] )
-            # get date for filename
-            currDate = numpy.unique( numpy.array( [ \
-                        x.strftime("%Y%m%d") for x in dtList ] ) )[0]
+            currDate = self.inpDate.strftime("%Y%m%d")
             # get peircepoints
             prpntLats = currDataSet.variables['PIERCEPOINT_DAY_LATITUDE'][:]
             prpntLons = currDataSet.variables['PIERCEPOINT_DAY_LONGITUDE'][:]
@@ -119,7 +119,7 @@ class ProcessData(object):
                 os.makedirs(self.outDir + "/" + satName)
             # if the file for the date exists append data
             # else create the file and write data!!!
-            outFileName = self.outDir + "/" + satName + "/" + currDate + "-mag2.txt"
+            outFileName = self.outDir + "/" + satName + "/" + currDate + ".txt"
             if not os.path.exists( outFileName ):
                 # NOTE we only need header when writing data for the first time!
                 with open(outFileName, 'w') as ftB:
