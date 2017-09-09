@@ -15,12 +15,13 @@ if __name__ == "__main__":
     inpTime = datetime.datetime( 2014, 12, 16, 20, 30 )
     ssObj = ssusi_utils.UtilsSsusi( inpDir, fileDate )
     fDict = ssObj.filter_data(inpTime)
-    fig = plt.figure(figsize=(12, 8))
-    ax = fig.add_subplot(1,1,1)
-    m = utils.plotUtils.mapObj(boundinglat=40., coords="mag")
-    ssObj.plot_ind_sat_data( fDict, m, ax, satList=[ "F18"] )
-    figName = "../figs/ssusi-sats.pdf" 
-    fig.savefig(figName,bbox_inches='tight')
+    # fig = plt.figure(figsize=(12, 8))
+    # ax = fig.add_subplot(1,1,1)
+    # m = utils.plotUtils.mapObj(boundinglat=40., coords="mag")
+    # ssObj.overlay_sat_data( fDict, m, ax, satList=["F16"] )
+    # figName = "../figs/ssusi-sats.pdf" 
+    # fig.savefig(figName,bbox_inches='tight')
+    ssObj.combine_sat_data(fDict)
 
 class UtilsSsusi(object):
     """
@@ -91,13 +92,43 @@ class UtilsSsusi(object):
                 evalStr = "(ssusiDF['{0}'] <" + str( int(-1*filterLat) ) + ".)" #
                 filterCol = [col for col in df if col.startswith('mlat')]
                 ssusiDF = ssusiDF[eval(" & ".join([\
-                        "(ssusiDF['{0}'] <" + fltrLatStr + ".)".format(col) 
+                        evalStr.format(col) 
                         for col in filterCol]))].reset_index(drop=True)
             filteredDict[key] = ssusiDF
         return filteredDict
+
+    def combine_sat_data(self, filteredDict, diskType='d135'):
+        """
+        Combine data from all the satellites
+        and get an integrated image.
+        """
+        # We'll round-off each latitude and longitude
+        # and try to identify the mean values from
+        # mlat, mlon pairs that fall into the category!
+        # combine data from all the frames
+        frames = []
+        for key in filteredDict.keys():
+            currDF = filteredDict[key]
+            frames.append( currDF )
+        ssusiDF = pandas.concat( frames )
+        # round all values in DF so that 
+        # we can aggregate MLATs and MLONs
+        ssusiDF = ssusiDF.round()
+        mlonList = []
+        mlatList = []
+        mltList = []
+        d121List = []
+        d130List = []
+        d135List = []
+        dLBHSList = []
+        dLBHLList = []
+        for currMlon in range(-180,181):
+            for currMlat in range(-90, 91):
+                a = ssusiDF[ ssusiDF ]
+
         
 
-    def plot_ind_sat_data(self, filteredDict, mapHandle, ax,\
+    def overlay_sat_data(self, filteredDict, mapHandle, ax,\
                         satList=["F18", "F17", "F16"], plotType='d135',\
                         overlayTime=True, overlayTimeInterval=10, timeMarker='D',\
                         timeMarkerSize=2., timeColor="grey", timeFontSize=8.):
