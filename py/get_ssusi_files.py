@@ -22,8 +22,10 @@ if __name__ == "__main__":
             currDir = tempFileDir + "sdr/" + currSat + "/"
             for root, dirs, files in os.walk(currDir):
                 for nd, dd in enumerate(dirs):
-                    print "processing data --> ", currDate.strftime("%Y-%m-%d")
-                    ssRdObj = read_ssusi.ProcessData( [root + dd + "/"], prcsdFileDir, currDate )
+                    print "processing data --> ",\
+                             currDate.strftime("%Y-%m-%d"), " sat-->", currSat
+                    ssRdObj = read_ssusi.ProcessData( [root + dd + "/"],\
+                                 prcsdFileDir, currDate )
                     ssRdObj.processed_data_to_file()
                     shutil.rmtree(root + dd + "/")
         currDate += tDelta
