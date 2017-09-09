@@ -149,28 +149,3 @@ class ProcessData(object):
             row["mlon." + indStr] = numpy.round( mlon, 2)
             row["mlt." + indStr] = numpy.round( mlt, 2)
         return row
-
-    def plot_ssusi_data(self, ssusiDF, plotType='di135', coords="geo",\
-                     figName="../figs/ssusi-test.pdf"):
-        """
-        Plot SSUSI data on a map
-        """
-        fig = plt.figure(figsize=(12, 8))
-        ax = fig.add_subplot(1,1,1)
-        m = plotUtils.mapObj(boundinglat=40., coords=coords)
-        # Need to get max and min for the plot
-        # we'll round off to the nearest 500
-        # and keep a cap of 1000.
-        vmax = numpy.round( numpy.max( ssusiDF[plotType] )/500. )*500.
-        if vmax > 1000.:
-            vmax = 1000.
-        p = m.pcolormesh(ssusiDF["glon"].values.reshape(42,1632), \
-                        ssusiDF["glat"].values.reshape(42,1632),\
-                        ssusiDF[plotType].values.reshape(42,1632),\
-                        latlon=True, zorder=1.9,
-                        vmin=0, vmax=vmax,
-                        ax=ax, alpha=1, cmap='Greens')
-        p.set_rasterized(True)
-        fig.savefig(figName,bbox_inches='tight')
-
-

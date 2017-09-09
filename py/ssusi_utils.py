@@ -96,36 +96,6 @@ class UtilsSsusi(object):
                         for col in filterCol]))].reset_index(drop=True)
             filteredDict[key] = ssusiDF
         return filteredDict
-
-    def combine_sat_data(self, filteredDict, diskType='d135'):
-        """
-        Combine data from all the satellites
-        and get an integrated image.
-        """
-        # We'll round-off each latitude and longitude
-        # and try to identify the mean values from
-        # mlat, mlon pairs that fall into the category!
-        # combine data from all the frames
-        frames = []
-        for key in filteredDict.keys():
-            currDF = filteredDict[key]
-            frames.append( currDF )
-        ssusiDF = pandas.concat( frames )
-        # round all values in DF so that 
-        # we can aggregate MLATs and MLONs
-        ssusiDF = ssusiDF.round()
-        mlonList = []
-        mlatList = []
-        mltList = []
-        d121List = []
-        d130List = []
-        d135List = []
-        dLBHSList = []
-        dLBHLList = []
-        for currMlon in range(-180,181):
-            for currMlat in range(-90, 91):
-                a = ssusiDF[ ssusiDF ]
-
         
 
     def overlay_sat_data(self, filteredDict, mapHandle, ax,\
