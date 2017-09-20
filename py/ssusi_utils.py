@@ -1,6 +1,7 @@
 import pandas
 import os
 import numpy
+from scipy.interpolate import interp1d
 import datetime
 import matplotlib.pyplot as plt
 import ssusi_utils
@@ -12,13 +13,15 @@ import matplotlib.pyplot as plt
 if __name__ == "__main__":
     inpDir = "/home/bharat/Documents/code/data/ssusi-prcsd/"
     fileDate = datetime.datetime( 2017, 8, 22 )
-    inpTime = datetime.datetime( 2017, 8, 22, 20, 30 )
+    inpTime = datetime.datetime( 2017, 8, 22, 21, 0 )
     ssObj = ssusi_utils.UtilsSsusi( inpDir, fileDate )
-    fDict = ssObj.filter_data(inpTime)
+
+    fDict = ssObj.filter_data_by_time(inpTime)
     fig = plt.figure(figsize=(12, 8))
     ax = fig.add_subplot(1,1,1)
     m = utils.plotUtils.mapObj(boundinglat=40., coords="mag")
-    ssObj.overlay_sat_data( fDict, m, ax, satList=["F18"] )
+    ssObj.overlay_sat_data( fDict, m, ax, satList=["F18"],\
+             inpTime=inpTime, vmin=0., vmax=1000., autoScale=False )
     figName = "../figs/ssusi-sats.pdf" 
     fig.savefig(figName,bbox_inches='tight')
 
@@ -54,10 +57,53 @@ class UtilsSsusi(object):
             else:
                 print "file not found-->", currFname
 
-    def filter_data(self, inpTime, hemi="north", filterLat=0.):
+    def filter_data_by_time(self, inpTime, hemi="north",\
+             timeDelta=15, filterLat=40.):
         """
         Filter the processed data for 
-        the desired time and hemisphere
+        the desired time (+/- timeDel) of
+        a given time and hemisphere.
+        NOTE - timeDel is in minutes
+        """
+        # We'll output the results in a dict
+        filteredDict = {}
+        for key in self.frames.keys():
+            ssusiDF = self.frames[key]
+            ssusiDF = ssusiDF.fillna(0.)
+            # get the time ranges that confine
+            # inptime and timedelta
+            timeMin = inpTime - datetime.timedelta(minutes=timeDelta)
+            timeMax = inpTime + datetime.timedelta(minutes=timeDelta)
+            # Choose DF rows which lie between timeMin and timeMax
+            ssusiDF = ssusiDF[ (ssusiDF["date"] >= timeMin) &\
+                                (ssusiDF["date"] <= timeMax) ]
+            # select data based on hemi
+            if hemi == "north":
+                evalStr = "(ssusiDF['{0}'] >" + str( int(filterLat) ) + ".)" #
+                # select all rows where lats are positive
+                # we'll use the eval func for this purpose
+                filterCol = [col for col in ssusiDF if col.startswith('mlat')]
+                ssusiDF = ssusiDF[eval(" & ".join([\
+                        evalStr.format(col) 
+                        for col in filterCol]))].reset_index(drop=True)
+            else:
+                evalStr = "(ssusiDF['{0}'] <" + str( int(-1*filterLat) ) + ".)" #
+                filterCol = [col for col in df if col.startswith('mlat')]
+                ssusiDF = ssusiDF[eval(" & ".join([\
+                        evalStr.format(col) 
+                        for col in filterCol]))].reset_index(drop=True)
+            if ssusiDF.shape[0] == 0:
+                print "********NO DATA FOUND, CHECK FOR A " +\
+                         "DIFFERENT TIME OR INCREASE TIMEDEL********"
+            filteredDict[key] = ssusiDF
+        return filteredDict
+
+
+    def filter_data_by_orbit(self, inpTime, hemi="north", filterLat=0.):
+        """
+        Filter the processed data for 
+        the desired closest orbit in time
+        and hemisphere
         """
         # We'll output the results in a dict
         filteredDict = {}
@@ -95,13 +141,31 @@ class UtilsSsusi(object):
                         for col in filterCol]))].reset_index(drop=True)
             filteredDict[key] = ssusiDF
         return filteredDict
-        
 
+    def cart2pol(self, x, y):
+        """
+        convert from cartesian to polar coords
+        """
+        colat = numpy.sqrt(x**2 + y**2)
+        lat = 90. - colat
+        lon = numpy.rad2deg( numpy.arctan2(y, x) )
+        return (lat, lon)
+
+    def pol2cart(self, lat, lon):
+        """
+        convert from polar to cartesian coords
+        """
+        colat = 90. - lat
+        x = colat * numpy.cos(numpy.deg2rad(lon))
+        y = colat * numpy.sin(numpy.deg2rad(lon))
+        return (x, y)
+        
     def overlay_sat_data(self, filteredDict, mapHandle, ax,\
                         satList=["F18", "F17", "F16"], plotType='d135',\
-                        overlayTime=True, overlayTimeInterval=10, timeMarker='D',\
+                        overlayTime=True, overlayTimeInterval=5, timeMarker='o',\
                         timeMarkerSize=2., timeColor="grey", timeFontSize=8.,\
-                         plotCBar=True, autoScale=True, vmin=0., vmax=1000.):
+                         plotCBar=True, autoScale=True, vmin=0., vmax=1000.,\
+                         plotTitle=True, titleString=None, inpTime=None, markSatName=True):
         """
         Plot SSUSI data on a map
         # overlayTimeInterval is in minutes
@@ -149,31 +213,72 @@ class UtilsSsusi(object):
                               ).astype('timedelta64[m]')
                 delRange = overlayTimeInterval*\
                             uniqueTimeList.shape[0]/timeDiff.astype('int')
-                # loop through and overlay times
-                for tt in range(0,uniqueTimeList.shape[0],delRange):
-                    timeSSusiMlats = ssusiDF[ ssusiDF["date"] ==\
-                             uniqueTimeList[tt] ]\
-                            [ssusiDF.columns[pandas.Series(\
-                            ssusiDF.columns).str.startswith('mlat')\
-                            ]].values
-                    timeSSusiMlons = ssusiDF[ ssusiDF["date"] ==\
-                             uniqueTimeList[tt] ]\
-                            [ssusiDF.columns[pandas.Series(\
-                            ssusiDF.columns).str.startswith('mlon')\
-                            ]].values
-                    xTVecs, yTVecs = mapHandle(timeSSusiMlons,\
-                                     timeSSusiMlats, coords="mag")
-                    mapHandle.plot(xTVecs, yTVecs,\
-                         marker=timeMarker,color=timeColor,\
-                          markersize=timeMarkerSize, zorder=7.)
-                    timeStr = pandas.to_datetime(uniqueTimeList[tt]).strftime("%H:%M")
-                    timeXVecs, timeYVecs = mapHandle(timeSSusiMlons[-1][-1],\
-                         timeSSusiMlats[-1][-1], coords="mag")
-                    ax.text(timeXVecs, timeYVecs, timeStr,\
-                        fontsize=timeFontSize,fontweight='bold',
-                        ha='left',va='center',color='k',\
-                         clip_on=True, zorder=7.)
+                # get a list of times every timeinterval
+                # for the given day
+                nextDayTime = self.fileDate + datetime.timedelta(days=1)
+                currDt = self.fileDate
+                allDayDatesList = []
+                allDayTSList = []
+                minDate = datetime.datetime.utcfromtimestamp(\
+                                uniqueTimeList.min().tolist()/1e9)
+                maxDate = datetime.datetime.utcfromtimestamp(\
+                                uniqueTimeList.max().tolist()/1e9)
+                while currDt < nextDayTime:
+                    if ( currDt >= minDate ) & ( currDt <= maxDate ):
+                        ts = (numpy.datetime64(currDt) - numpy.datetime64('1970-01-01T00:00:00Z')) / numpy.timedelta64(1, 's')
+                        allDayTSList.append( ts )
+                        allDayDatesList.append( currDt )
+                    currDt += datetime.timedelta(minutes=overlayTimeInterval)
+                
+                timeSSusiMlats = ssusiDF\
+                        [ssusiDF.columns[pandas.Series(\
+                        ssusiDF.columns).str.startswith('mlat')\
+                        ]].values
+                timeSSusiMlons = ssusiDF\
+                        [ssusiDF.columns[pandas.Series(\
+                        ssusiDF.columns).str.startswith('mlon')\
+                        ]].values
+                timeSSusiTimes = ssusiDF["date"].values
+                satTSArr = (timeSSusiTimes - numpy.datetime64('1970-01-01T00:00:00Z')) / numpy.timedelta64(1, 's')
+                # Interpolate the values to get times
+                for dd in range( len(allDayDatesList)-1 ):
+                    for pixel in range(timeSSusiMlons.shape[1]):
+                        currPixelMlons = timeSSusiMlons[:,pixel]
+                        currPixelMlats = timeSSusiMlats[:,pixel]
+                        (x,y) = self.pol2cart( currPixelMlats, currPixelMlons )
+                        xArr = numpy.interp(allDayTSList[dd], satTSArr, x)
+                        yArr = numpy.interp(allDayTSList[dd], satTSArr, y)
+                        print allDayTSList
+                        print satTSArr[0], satTSArr[-1]
+                        asdsa
+                        (timePlotLatArr, timePlotLonArr) = self.cart2pol( xArr, yArr )
+                        xTVecs, yTVecs = mapHandle(timePlotLonArr,\
+                                         timePlotLatArr, coords="mag")
+                        mapHandle.plot(xTVecs, yTVecs,\
+                             marker=timeMarker,color=timeColor,\
+                              markersize=timeMarkerSize, zorder=7.)
+                        timeStr = allDayDatesList[dd].strftime("%H:%M")
+                        # Write Sat names used in plotting
+                        if markSatName:
+                            timeStr = timeStr + " (" + satNameKey + ")"
+                        timeXVecs, timeYVecs = mapHandle(timeSSusiMlons[-1][-1],\
+                             timeSSusiMlats[-1][-1], coords="mag")
+                        ax.text(timeXVecs, timeYVecs, timeStr,\
+                            fontsize=timeFontSize,fontweight='bold',
+                            ha='left',va='center',color='k',\
+                             clip_on=True, zorder=7.)
             # plot colorbar
             if plotCBar:
                 cbar = plt.colorbar(ssusiPlot, orientation='vertical')
                 cbar.set_label('Rayleighs', size=14)
+            # Title
+            if plotTitle:
+                if titleString is not None:
+                    plt.title(titleString)
+                else:
+                    if inpTime is not None:
+                        inpTimeStr = inpTime.strftime("%Y-%m-%d  %H:%M")
+                        plt.title( inpTimeStr + " UT" )
+                    else:
+                        print "***********NEED INPTIME FOR TITLE***********"
+            
