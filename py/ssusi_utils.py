@@ -10,18 +10,17 @@ import matplotlib.pyplot as plt
 
 
 if __name__ == "__main__":
-    inpDir = "../data/processed/"
-    fileDate = datetime.datetime( 2014, 12, 16 )
-    inpTime = datetime.datetime( 2014, 12, 16, 20, 30 )
+    inpDir = "/home/bharat/Documents/code/data/ssusi-prcsd/"
+    fileDate = datetime.datetime( 2017, 8, 22 )
+    inpTime = datetime.datetime( 2017, 8, 22, 20, 30 )
     ssObj = ssusi_utils.UtilsSsusi( inpDir, fileDate )
     fDict = ssObj.filter_data(inpTime)
-    # fig = plt.figure(figsize=(12, 8))
-    # ax = fig.add_subplot(1,1,1)
-    # m = utils.plotUtils.mapObj(boundinglat=40., coords="mag")
-    # ssObj.overlay_sat_data( fDict, m, ax, satList=["F16"] )
-    # figName = "../figs/ssusi-sats.pdf" 
-    # fig.savefig(figName,bbox_inches='tight')
-    ssObj.combine_sat_data(fDict)
+    fig = plt.figure(figsize=(12, 8))
+    ax = fig.add_subplot(1,1,1)
+    m = utils.plotUtils.mapObj(boundinglat=40., coords="mag")
+    ssObj.overlay_sat_data( fDict, m, ax, satList=["F18"] )
+    figName = "../figs/ssusi-sats.pdf" 
+    fig.savefig(figName,bbox_inches='tight')
 
 class UtilsSsusi(object):
     """
@@ -101,7 +100,8 @@ class UtilsSsusi(object):
     def overlay_sat_data(self, filteredDict, mapHandle, ax,\
                         satList=["F18", "F17", "F16"], plotType='d135',\
                         overlayTime=True, overlayTimeInterval=10, timeMarker='D',\
-                        timeMarkerSize=2., timeColor="grey", timeFontSize=8.):
+                        timeMarkerSize=2., timeColor="grey", timeFontSize=8.,\
+                         plotCBar=True, autoScale=True, vmin=0., vmax=1000.):
         """
         Plot SSUSI data on a map
         # overlayTimeInterval is in minutes
@@ -127,28 +127,28 @@ class UtilsSsusi(object):
             # Need to get max and min for the plot
             # we'll round off to the nearest 500
             # and keep a cap of 1000.
-            vmax = numpy.round( numpy.max( ssusiDisk )/500. )*500.
-            if vmax > 1000.:
-                vmax = 1000.
+            if autoScale:
+                vmin = 0.
+                vmax = numpy.round( numpy.max( ssusiDisk )/500. )*500.
             xVecs, yVecs = mapHandle(ssusiMlons, ssusiMlats, coords="mag")
-            p = mapHandle.scatter(xVecs, yVecs, c=ssusiDisk, s=10.,\
+            ssusiPlot = mapHandle.scatter(xVecs, yVecs, c=ssusiDisk, s=10.,\
                        cmap="Greens", alpha=0.7, zorder=5., \
                                  edgecolor='none', marker="s",\
-                                  vmin=0., vmax=1000.)
+                                  vmin=vmin, vmax=vmax)
             # p = mapHandle.pcolormesh(ssusiMlats, ssusiMlons,\
             #                 ssusiDisk,\
             #                 latlon=True, zorder=1.9,
             #                 vmin=0, vmax=vmax,
             #                 ax=ax, alpha=1, cmap='Greens')
-            p.set_rasterized(True)
+            ssusiPlot.set_rasterized(True)
             # overlay time
             if overlayTime:
                 uniqueTimeList = ssusiDF["date"].unique()
                 timeDiff = ( uniqueTimeList.max() -\
                              uniqueTimeList.min()\
                               ).astype('timedelta64[m]')
-                delRange = overlayTimeInterval*uniqueTimeList.\
-                                shape[0]/timeDiff.astype('int')
+                delRange = overlayTimeInterval*\
+                            uniqueTimeList.shape[0]/timeDiff.astype('int')
                 # loop through and overlay times
                 for tt in range(0,uniqueTimeList.shape[0],delRange):
                     timeSSusiMlats = ssusiDF[ ssusiDF["date"] ==\
@@ -173,3 +173,7 @@ class UtilsSsusi(object):
                         fontsize=timeFontSize,fontweight='bold',
                         ha='left',va='center',color='k',\
                          clip_on=True, zorder=7.)
+            # plot colorbar
+            if plotCBar:
+                cbar = plt.colorbar(ssusiPlot, orientation='vertical')
+                cbar.set_label('Rayleighs', size=14)

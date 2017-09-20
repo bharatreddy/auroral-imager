@@ -5,19 +5,19 @@ import read_ssusi
 import shutil
 
 if __name__ == "__main__":
-    tempFileDir = "/Users/bharat/Desktop/ss-test/temp/"
-    prcsdFileDir = "/Users/bharat/Desktop/ss-test/prcsd/"
-    satList = [ "f16", "f17", "f18" ]
+    tempFileDir = "/home/bharat/Documents/code/data/ssusi-temp/"
+    prcsdFileDir = "/home/bharat/Documents/code/data/ssusi-prcsd/"
+    satList = [ "f17", "f18" ]
     ssDwnldObj = dwnld_ssusi.SSUSIDownload(\
                     outBaseDir = tempFileDir)
     dataTypeList = [ "sdr" ]#, "l1b", "edr-aur" ]
-    currDate = datetime.datetime( 2014, 1, 1 )
-    endDate = datetime.datetime( 2014, 1, 5 )
+    currDate = datetime.datetime( 2017, 8, 22 )
+    endDate = datetime.datetime( 2017, 8, 23 )
     tDelta = datetime.timedelta(days=1)
     while currDate <= endDate:
         print "currently downloading files for --> ",\
             currDate.strftime("%Y-%m-%d")
-        # ssDwnldObj.download_files(currDate, dataTypeList)
+        ssDwnldObj.download_files(currDate, dataTypeList)
         for currSat in satList:
             currDir = tempFileDir + "sdr/" + currSat + "/"
             for root, dirs, files in os.walk(currDir):
