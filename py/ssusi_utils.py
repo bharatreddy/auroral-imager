@@ -11,12 +11,12 @@ import matplotlib.pyplot as plt
 
 
 if __name__ == "__main__":
-    inpDir = "/home/bharat/Documents/code/data/ssusi-prcsd/"
-    fileDate = datetime.datetime( 2017, 8, 22 )
-    inpTime = datetime.datetime( 2017, 8, 22, 21, 0 )
+    inpDir = "../data/processed/"#/home/bharat/Documents/code/data/ssusi-prcsd/"
+    fileDate = datetime.datetime( 2014, 12, 16 )
+    inpTime = datetime.datetime( 2014, 12, 16, 18, 30 )
     ssObj = ssusi_utils.UtilsSsusi( inpDir, fileDate )
 
-    fDict = ssObj.filter_data_by_time(inpTime)
+    fDict = ssObj.filter_data_by_time(inpTime, timeDelta=30)
     fig = plt.figure(figsize=(12, 8))
     ax = fig.add_subplot(1,1,1)
     m = utils.plotUtils.mapObj(boundinglat=40., coords="mag")
@@ -223,9 +223,11 @@ class UtilsSsusi(object):
                                 uniqueTimeList.min().tolist()/1e9)
                 maxDate = datetime.datetime.utcfromtimestamp(\
                                 uniqueTimeList.max().tolist()/1e9)
-                while currDt < nextDayTime:
+                while currDt <= nextDayTime:
                     if ( currDt >= minDate ) & ( currDt <= maxDate ):
-                        ts = (numpy.datetime64(currDt) - numpy.datetime64('1970-01-01T00:00:00Z')) / numpy.timedelta64(1, 's')
+                        ts = (numpy.datetime64(currDt) - \
+                                numpy.datetime64('1970-01-01T00:00:00Z')\
+                                ) / numpy.timedelta64(1, 's')
                         allDayTSList.append( ts )
                         allDayDatesList.append( currDt )
                     currDt += datetime.timedelta(minutes=overlayTimeInterval)
@@ -239,7 +241,9 @@ class UtilsSsusi(object):
                         ssusiDF.columns).str.startswith('mlon')\
                         ]].values
                 timeSSusiTimes = ssusiDF["date"].values
-                satTSArr = (timeSSusiTimes - numpy.datetime64('1970-01-01T00:00:00Z')) / numpy.timedelta64(1, 's')
+                satTSArr = (timeSSusiTimes - \
+                            numpy.datetime64('1970-01-01T00:00:00Z')\
+                            ) / numpy.timedelta64(1, 's')
                 # Interpolate the values to get times
                 for dd in range( len(allDayDatesList)-1 ):
                     for pixel in range(timeSSusiMlons.shape[1]):
@@ -248,9 +252,6 @@ class UtilsSsusi(object):
                         (x,y) = self.pol2cart( currPixelMlats, currPixelMlons )
                         xArr = numpy.interp(allDayTSList[dd], satTSArr, x)
                         yArr = numpy.interp(allDayTSList[dd], satTSArr, y)
-                        print allDayTSList
-                        print satTSArr[0], satTSArr[-1]
-                        asdsa
                         (timePlotLatArr, timePlotLonArr) = self.cart2pol( xArr, yArr )
                         xTVecs, yTVecs = mapHandle(timePlotLonArr,\
                                          timePlotLatArr, coords="mag")
@@ -259,14 +260,15 @@ class UtilsSsusi(object):
                               markersize=timeMarkerSize, zorder=7.)
                         timeStr = allDayDatesList[dd].strftime("%H:%M")
                         # Write Sat names used in plotting
-                        if markSatName:
-                            timeStr = timeStr + " (" + satNameKey + ")"
-                        timeXVecs, timeYVecs = mapHandle(timeSSusiMlons[-1][-1],\
-                             timeSSusiMlats[-1][-1], coords="mag")
-                        ax.text(timeXVecs, timeYVecs, timeStr,\
-                            fontsize=timeFontSize,fontweight='bold',
-                            ha='left',va='center',color='k',\
-                             clip_on=True, zorder=7.)
+                        if pixel == 0:
+                            if markSatName:
+                                timeStr = timeStr + " (" + satNameKey + ")"
+                            timeXVecs, timeYVecs = mapHandle(timePlotLonArr,\
+                                 timePlotLatArr, coords="mag")
+                            ax.text(timeXVecs, timeYVecs, timeStr,\
+                                fontsize=timeFontSize,fontweight='bold',
+                                ha='left',va='center',color='k',\
+                                 clip_on=True, zorder=7.)
             # plot colorbar
             if plotCBar:
                 cbar = plt.colorbar(ssusiPlot, orientation='vertical')
