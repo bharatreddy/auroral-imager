@@ -11,12 +11,12 @@ import matplotlib.pyplot as plt
 
 
 if __name__ == "__main__":
-    inpDir = "../data/processed/"#/home/bharat/Documents/code/data/ssusi-prcsd/"
-    fileDate = datetime.datetime( 2014, 12, 16 )
-    inpTime = datetime.datetime( 2014, 12, 16, 18, 30 )
+    inpDir = "../data/processed/"#"/home/bharat/Documents/code/data/ssusi-prcsd/"
+    fileDate = datetime.datetime( 2014, 12, 16 )#datetime.datetime( 2017, 8, 23 )
+    inpTime = datetime.datetime( 2014, 12, 16, 19, 30 )#datetime.datetime( 2017, 8, 23, 21, 0 )
     ssObj = ssusi_utils.UtilsSsusi( inpDir, fileDate )
 
-    fDict = ssObj.filter_data_by_time(inpTime, timeDelta=30)
+    fDict = ssObj.filter_data_by_time(inpTime, timeDelta=40)
     fig = plt.figure(figsize=(12, 8))
     ax = fig.add_subplot(1,1,1)
     m = utils.plotUtils.mapObj(boundinglat=40., coords="mag")
@@ -58,7 +58,7 @@ class UtilsSsusi(object):
                 print "file not found-->", currFname
 
     def filter_data_by_time(self, inpTime, hemi="north",\
-             timeDelta=15, filterLat=40.):
+             timeDelta=20, filterLat=40.):
         """
         Filter the processed data for 
         the desired time (+/- timeDel) of
@@ -231,7 +231,6 @@ class UtilsSsusi(object):
                         allDayTSList.append( ts )
                         allDayDatesList.append( currDt )
                     currDt += datetime.timedelta(minutes=overlayTimeInterval)
-                
                 timeSSusiMlats = ssusiDF\
                         [ssusiDF.columns[pandas.Series(\
                         ssusiDF.columns).str.startswith('mlat')\
@@ -245,13 +244,17 @@ class UtilsSsusi(object):
                             numpy.datetime64('1970-01-01T00:00:00Z')\
                             ) / numpy.timedelta64(1, 's')
                 # Interpolate the values to get times
-                for dd in range( len(allDayDatesList)-1 ):
+                for dd in range( len(allDayDatesList) ):
                     for pixel in range(timeSSusiMlons.shape[1]):
                         currPixelMlons = timeSSusiMlons[:,pixel]
                         currPixelMlats = timeSSusiMlats[:,pixel]
                         (x,y) = self.pol2cart( currPixelMlats, currPixelMlons )
-                        xArr = numpy.interp(allDayTSList[dd], satTSArr, x)
-                        yArr = numpy.interp(allDayTSList[dd], satTSArr, y)
+                        # xArr = numpy.interp(allDayTSList[dd], satTSArr, x)
+                        # yArr = numpy.interp(allDayTSList[dd], satTSArr, y)
+                        fXIn = interp1d(satTSArr, x)
+                        fYIn = interp1d(satTSArr, y)
+                        xArr = fXIn(allDayTSList[dd])
+                        yArr = fYIn(allDayTSList[dd])
                         (timePlotLatArr, timePlotLonArr) = self.cart2pol( xArr, yArr )
                         xTVecs, yTVecs = mapHandle(timePlotLonArr,\
                                          timePlotLatArr, coords="mag")
