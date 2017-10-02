@@ -7,12 +7,12 @@ import shutil
 if __name__ == "__main__":
     tempFileDir = "/home/bharat/Documents/code/data/ssusi-temp/"
     prcsdFileDir = "/home/bharat/Documents/code/data/ssusi-prcsd/"
-    satList = [ "f17", "f18" ]
+    satList = [ "f16", "f17", "f18" ]
     ssDwnldObj = dwnld_ssusi.SSUSIDownload(\
                     outBaseDir = tempFileDir)
     dataTypeList = [ "sdr" ]#, "l1b", "edr-aur" ]
-    currDate = datetime.datetime( 2017, 8, 22 )
-    endDate = datetime.datetime( 2017, 8, 23 )
+    currDate = datetime.datetime( 2015, 1, 5 )
+    endDate = datetime.datetime( 2015, 1, 5 )
     tDelta = datetime.timedelta(days=1)
     while currDate <= endDate:
         print "currently downloading files for --> ",\

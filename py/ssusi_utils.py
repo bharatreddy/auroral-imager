@@ -82,16 +82,30 @@ class UtilsSsusi(object):
                 evalStr = "(ssusiDF['{0}'] >" + str( int(filterLat) ) + ".)" #
                 # select all rows where lats are positive
                 # we'll use the eval func for this purpose
+                # First check if we have MLAT or GLAT coords
+                # we have in the file!
                 filterCol = [col for col in ssusiDF if col.startswith('mlat')]
-                ssusiDF = ssusiDF[eval(" & ".join([\
-                        evalStr.format(col) 
-                        for col in filterCol]))].reset_index(drop=True)
+                if len(filterCol) > 0:
+                    ssusiDF = ssusiDF[eval(" & ".join([\
+                            evalStr.format(col) 
+                            for col in filterCol]))].reset_index(drop=True)
+                else:
+                    filterCol = [col for col in ssusiDF if col.startswith('glat')]
+                    ssusiDF = ssusiDF[eval(" & ".join([\
+                            evalStr.format(col) 
+                            for col in filterCol]))].reset_index(drop=True)
             else:
                 evalStr = "(ssusiDF['{0}'] <" + str( int(-1*filterLat) ) + ".)" #
                 filterCol = [col for col in df if col.startswith('mlat')]
-                ssusiDF = ssusiDF[eval(" & ".join([\
-                        evalStr.format(col) 
-                        for col in filterCol]))].reset_index(drop=True)
+                if len(filterCol) > 0:
+                    ssusiDF = ssusiDF[eval(" & ".join([\
+                            evalStr.format(col) 
+                            for col in filterCol]))].reset_index(drop=True)
+                else:
+                    filterCol = [col for col in ssusiDF if col.startswith('glat')]
+                    ssusiDF = ssusiDF[eval(" & ".join([\
+                            evalStr.format(col) 
+                            for col in filterCol]))].reset_index(drop=True)
             if ssusiDF.shape[0] == 0:
                 print "********NO DATA FOUND, CHECK FOR A " +\
                          "DIFFERENT TIME OR INCREASE TIMEDEL********"
@@ -130,15 +144,27 @@ class UtilsSsusi(object):
                 # select all rows where lats are positive
                 # we'll use the eval func for this purpose
                 filterCol = [col for col in ssusiDF if col.startswith('mlat')]
-                ssusiDF = ssusiDF[eval(" & ".join([\
-                        evalStr.format(col) 
-                        for col in filterCol]))].reset_index(drop=True)
+                if len(filterCol) > 0:
+                    ssusiDF = ssusiDF[eval(" & ".join([\
+                            evalStr.format(col) 
+                            for col in filterCol]))].reset_index(drop=True)
+                else:
+                    filterCol = [col for col in ssusiDF if col.startswith('glat')]
+                    ssusiDF = ssusiDF[eval(" & ".join([\
+                            evalStr.format(col) 
+                            for col in filterCol]))].reset_index(drop=True)
             else:
                 evalStr = "(ssusiDF['{0}'] <" + str( int(-1*filterLat) ) + ".)" #
                 filterCol = [col for col in df if col.startswith('mlat')]
-                ssusiDF = ssusiDF[eval(" & ".join([\
-                        evalStr.format(col) 
-                        for col in filterCol]))].reset_index(drop=True)
+                if len(filterCol) > 0:
+                    ssusiDF = ssusiDF[eval(" & ".join([\
+                            evalStr.format(col) 
+                            for col in filterCol]))].reset_index(drop=True)
+                else:
+                    filterCol = [col for col in ssusiDF if col.startswith('glat')]
+                    ssusiDF = ssusiDF[eval(" & ".join([\
+                            evalStr.format(col) 
+                            for col in filterCol]))].reset_index(drop=True)
             filteredDict[key] = ssusiDF
         return filteredDict
 
@@ -165,7 +191,8 @@ class UtilsSsusi(object):
                         overlayTime=True, overlayTimeInterval=5, timeMarker='o',\
                         timeMarkerSize=2., timeColor="grey", timeFontSize=8.,\
                          plotCBar=True, autoScale=True, vmin=0., vmax=1000.,\
-                         plotTitle=True, titleString=None, inpTime=None, markSatName=True):
+                         plotTitle=True, titleString=None, inpTime=None,\
+                         markSatName=True, coords="mag"):
         """
         Plot SSUSI data on a map
         # overlayTimeInterval is in minutes
@@ -176,30 +203,53 @@ class UtilsSsusi(object):
             satNameKey= key[-3:]
             if satNameKey not in satList:
                 continue
-            ssusiMlats = ssusiDF\
-                            [ssusiDF.columns[pandas.Series(\
-                            ssusiDF.columns).str.startswith('mlat')\
-                            ]].values
-            ssusiMlons = ssusiDF\
-                            [ssusiDF.columns[pandas.Series(\
-                            ssusiDF.columns).str.startswith('mlon')\
-                            ]].values
-            ssusiDisk = ssusiDF\
-                            [ssusiDF.columns[pandas.Series(\
-                            ssusiDF.columns).str.startswith(plotType)\
-                            ]].values
+            # plot according to coords
+            # also check if we have MLAT or GLAT coords
+            # we have in the file!
+            if coords != "geog":
+                if "mlat.1" not in ssusiDF.columns:
+                    print "converting from geog to aacgm coordinates"
+                    ssusiDisk = self.convert_aacgm_geo(ssusiDisk, a2g=False)    
+                ssusiLats = ssusiDF\
+                                [ssusiDF.columns[pandas.Series(\
+                                ssusiDF.columns).str.startswith('mlat')\
+                                ]].values
+                ssusiLons = ssusiDF\
+                                [ssusiDF.columns[pandas.Series(\
+                                ssusiDF.columns).str.startswith('mlon')\
+                                ]].values
+                ssusiDisk = ssusiDF\
+                                [ssusiDF.columns[pandas.Series(\
+                                ssusiDF.columns).str.startswith(plotType)\
+                                ]].values
+            else:
+                if "glat.1" not in ssusiDF.columns:
+                    print "converting from geog to aacgm coordinates"
+                    ssusiDisk = self.convert_aacgm_geo(ssusiDisk, a2g=True)    
+                ssusiLats = ssusiDF\
+                                [ssusiDF.columns[pandas.Series(\
+                                ssusiDF.columns).str.startswith('glat')\
+                                ]].values
+                ssusiLons = ssusiDF\
+                                [ssusiDF.columns[pandas.Series(\
+                                ssusiDF.columns).str.startswith('glon')\
+                                ]].values
+                ssusiDisk = ssusiDF\
+                                [ssusiDF.columns[pandas.Series(\
+                                ssusiDF.columns).str.startswith(plotType)\
+                                ]].values
             # Need to get max and min for the plot
             # we'll round off to the nearest 500
             # and keep a cap of 1000.
             if autoScale:
                 vmin = 0.
                 vmax = numpy.round( numpy.max( ssusiDisk )/500. )*500.
-            xVecs, yVecs = mapHandle(ssusiMlons, ssusiMlats, coords="mag")
+            xVecs, yVecs = mapHandle(ssusiLons, ssusiLats, coords=coords)
             ssusiPlot = mapHandle.scatter(xVecs, yVecs, c=ssusiDisk, s=10.,\
                        cmap="Greens", alpha=0.7, zorder=5., \
                                  edgecolor='none', marker="s",\
                                   vmin=vmin, vmax=vmax)
-            # p = mapHandle.pcolormesh(ssusiMlats, ssusiMlons,\
+            # p = mapHandle.pcolormesh(ssusiLats, ssusiLons,\
             #                 ssusiDisk,\
             #                 latlon=True, zorder=1.9,
             #                 vmin=0, vmax=vmax,
@@ -231,23 +281,33 @@ class UtilsSsusi(object):
                         allDayTSList.append( ts )
                         allDayDatesList.append( currDt )
                     currDt += datetime.timedelta(minutes=overlayTimeInterval)
-                timeSSusiMlats = ssusiDF\
-                        [ssusiDF.columns[pandas.Series(\
-                        ssusiDF.columns).str.startswith('mlat')\
-                        ]].values
-                timeSSusiMlons = ssusiDF\
-                        [ssusiDF.columns[pandas.Series(\
-                        ssusiDF.columns).str.startswith('mlon')\
-                        ]].values
+                if coords == "mag":
+                    timessusiLats = ssusiDF\
+                            [ssusiDF.columns[pandas.Series(\
+                            ssusiDF.columns).str.startswith('mlat')\
+                            ]].values
+                    timessusiLons = ssusiDF\
+                            [ssusiDF.columns[pandas.Series(\
+                            ssusiDF.columns).str.startswith('mlon')\
+                            ]].values
+                else:
+                    timessusiLats = ssusiDF\
+                            [ssusiDF.columns[pandas.Series(\
+                            ssusiDF.columns).str.startswith('glat')\
+                            ]].values
+                    timessusiLons = ssusiDF\
+                            [ssusiDF.columns[pandas.Series(\
+                            ssusiDF.columns).str.startswith('glon')\
+                            ]].values
                 timeSSusiTimes = ssusiDF["date"].values
                 satTSArr = (timeSSusiTimes - \
                             numpy.datetime64('1970-01-01T00:00:00Z')\
                             ) / numpy.timedelta64(1, 's')
                 # Interpolate the values to get times
                 for dd in range( len(allDayDatesList) ):
-                    for pixel in range(timeSSusiMlons.shape[1]):
-                        currPixelMlons = timeSSusiMlons[:,pixel]
-                        currPixelMlats = timeSSusiMlats[:,pixel]
+                    for pixel in range(timessusiLons.shape[1]):
+                        currPixelMlons = timessusiLons[:,pixel]
+                        currPixelMlats = timessusiLats[:,pixel]
                         (x,y) = self.pol2cart( currPixelMlats, currPixelMlons )
                         # xArr = numpy.interp(allDayTSList[dd], satTSArr, x)
                         # yArr = numpy.interp(allDayTSList[dd], satTSArr, y)
@@ -257,7 +317,7 @@ class UtilsSsusi(object):
                         yArr = fYIn(allDayTSList[dd])
                         (timePlotLatArr, timePlotLonArr) = self.cart2pol( xArr, yArr )
                         xTVecs, yTVecs = mapHandle(timePlotLonArr,\
-                                         timePlotLatArr, coords="mag")
+                                         timePlotLatArr, coords=coords)
                         mapHandle.plot(xTVecs, yTVecs,\
                              marker=timeMarker,color=timeColor,\
                               markersize=timeMarkerSize, zorder=7.)
@@ -267,7 +327,7 @@ class UtilsSsusi(object):
                             if markSatName:
                                 timeStr = timeStr + " (" + satNameKey + ")"
                             timeXVecs, timeYVecs = mapHandle(timePlotLonArr,\
-                                 timePlotLatArr, coords="mag")
+                                 timePlotLatArr, coords=coords)
                             ax.text(timeXVecs, timeYVecs, timeStr,\
                                 fontsize=timeFontSize,fontweight='bold',
                                 ha='left',va='center',color='k',\
@@ -287,3 +347,27 @@ class UtilsSsusi(object):
                     else:
                         print "***********NEED INPTIME FOR TITLE***********"
             
+
+    def convert_aacgm_geo(self, ssusiDF, a2g=False):
+        """
+        For the SSUSI DF convert all the 42
+        Given glat, glon and date return
+        mlat, mlon and mlt
+        """
+        for i in range( ssusiDF['shapeArr'].iloc[0] ):
+            indStr = str(i+1)
+            if a2g:
+                glat, glon = aacgmv2.convert( ssusiDF["mlat." + indStr], ssusiDF["mlon." + indStr],\
+                               300, ssusiDF["date"], a2g=a2g )
+            else:    
+                mlat, mlon = aacgmv2.convert( ssusiDF["glat." + indStr], ssusiDF["glon." + indStr],\
+                                   300, ssusiDF["date"] )
+                mlt = aacgmv2.convert_mlt(mlon, ssusiDF["date"].values, m2a=False)
+
+                mlat, mlon = aacgmv2.convert(row["glat." + indStr], row["glon." + indStr],\
+                                   300, row["date"])
+                mlt = aacgmv2.convert_mlt(mlon, row["date"], m2a=False)
+                row["mlat." + indStr] = numpy.round( mlat, 2)
+                row["mlon." + indStr] = numpy.round( mlon, 2)
+                row["mlt." + indStr] = numpy.round( mlt, 2)
+        return ssusiDF

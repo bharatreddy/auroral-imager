@@ -37,10 +37,11 @@ class ProcessData(object):
         self.outDir = outDir
         self.inpDate = inpDate
 
-    def processed_data_to_file(self):
+    def processed_data_to_file(self, coords="geog"):
         """
         read the required data into a dataframe
-        select only required columns, convert to
+        select only required columns, if aacgm
+        coordinates are selected convert geog to
         AACGM coords and save data to file!
         """
         # selFname = "PS.APL_V0116S024CB0005_SC.U_DI.A_GP.F18-SSUSI_PA.APL-SDR-DISK_DD.20141216_SN.26612-00_DF.NC"
@@ -104,15 +105,19 @@ class ProcessData(object):
             # # reset index, we need datetime as a col
             ssusiDF = ssusiDF.reset_index()
             ssusiDF = ssusiDF.rename(columns = {'index':'date'})
-            # Now we need to convert the GLAT, GLON into MLAT, MLON and MLT
-            ssusiDF = ssusiDF.apply(self.convert_to_aacgm, axis=1)
-            ssusiDF = ssusiDF.round(2)
-            # We'll only need aacgm coords, discard all geog coords
-            mlatColList = [ "mlat." + str(cNum+1) for cNum in range(prpntLats.shape[0]) ]
-            mlonColList = [ "mlon." + str(cNum+1) for cNum in range(prpntLats.shape[0]) ]
-            mltColList = [ "mlt." + str(cNum+1) for cNum in range(prpntLats.shape[0]) ]
-            outCols = ["date", "sat", "orbitNum"] + mlatColList + mlonColList + mltColList + d121ColList + \
-                        d130ColList + d135ColList + dLBHSColList + dLBHLColList
+            if coords != "geog":
+                # Now we need to convert the GLAT, GLON into MLAT, MLON and MLT
+                ssusiDF = ssusiDF.apply(self.convert_to_aacgm, axis=1)
+                ssusiDF = ssusiDF.round(2)
+                # We'll only need aacgm coords, discard all geog coords
+                mlatColList = [ "mlat." + str(cNum+1) for cNum in range(prpntLats.shape[0]) ]
+                mlonColList = [ "mlon." + str(cNum+1) for cNum in range(prpntLats.shape[0]) ]
+                mltColList = [ "mlt." + str(cNum+1) for cNum in range(prpntLats.shape[0]) ]
+                outCols = ["date", "sat", "orbitNum"] + mlatColList + mlonColList + mltColList + d121ColList + \
+                            d130ColList + d135ColList + dLBHSColList + dLBHLColList
+            else:
+                outCols = ["date", "sat", "orbitNum", "shapeArr"] + latColList + lonColList + d121ColList + \
+                            d130ColList + d135ColList + dLBHSColList + dLBHLColList
             ssusiDF = ssusiDF[ outCols ]
             # We now need to write the processed data to a file
             if not os.path.exists(self.outDir + "/" +satName):
