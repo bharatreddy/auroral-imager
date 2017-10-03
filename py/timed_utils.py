@@ -4,30 +4,30 @@ import numpy
 from scipy.interpolate import interp1d
 import datetime
 import matplotlib.pyplot as plt
-import ssusi_utils
+import timed_utils
 import aacgmv2
 from davitpy import utils
 import matplotlib.pyplot as plt
 
 
 if __name__ == "__main__":
-    inpDir = "/home/bharat/Documents/code/data/ssusi-prcsd/"
-    fileDate = datetime.datetime( 2015, 4, 9 )#datetime.datetime( 2017, 8, 23 )
-    inpTime = datetime.datetime( 2015, 4, 9, 8, 0 )#datetime.datetime( 2017, 8, 23, 21, 0 )
+    inpDir = "/home/bharat/Documents/code/data/timed-prcsd/"
+    fileDate = datetime.datetime( 2005, 8, 6 )
+    inpTime = datetime.datetime( 2005, 8, 6, 5, 30 )
     coords="mag"
-    ssObj = ssusi_utils.UtilsSsusi( inpDir, fileDate )
-    poleTimesDict = ssObj.get_pole_times()
-    print "TIMES WHERE SAT WAS NEAR POLES--->", poleTimesDict
-    fDict = ssObj.filter_data_by_time(inpTime, timeDelta=40)
+    tgObj = timed_utils.UtilsTimedGuvi( inpDir, fileDate )
+    poleTimesDict = tgObj.get_pole_times()
+    # print "TIMES WHERE SAT WAS NEAR POLES--->", poleTimesDict
+    fDict = tgObj.filter_data_by_time(inpTime, timeDelta=40)
     fig = plt.figure(figsize=(12, 8))
     ax = fig.add_subplot(1,1,1)
     m = utils.plotUtils.mapObj(boundinglat=40., coords=coords)
-    ssObj.overlay_sat_data( fDict, m, ax, satList=["F18"],\
-             inpTime=inpTime, vmin=0., vmax=1000., autoScale=False, coords=coords )
-    figName = "../figs/ssusi-sats.pdf" 
+    tgObj.overlay_sat_data( fDict, m, ax,\
+             inpTime=inpTime, vmin=0., vmax=500., autoScale=False, coords=coords )
+    figName = "../figs/timed.pdf" 
     fig.savefig(figName,bbox_inches='tight')
 
-class UtilsSsusi(object):
+class UtilsTimedGuvi(object):
     """
     A class to Download SSUSI data
     given a date and datatype!
@@ -42,22 +42,18 @@ class UtilsSsusi(object):
         dirList = []
         self.fileDate = fileDate
         currDtStr = self.fileDate.strftime("%Y%m%d")
-        # Loop through the satList and read data 
-        # from each satellite.
-        # NOTE we expect the sub directory in the
-        # parent directory to be the name of the
-        # satellite listed in satList
-        for sat in satList:
-            currFname = inpDir + sat + "/" + currDtStr + ".txt"
-            # check if file exists
-            if os.path.exists( currFname ):
-                print "reading data from--->", currFname
-                self.frames[ "ssusi" + sat ] = pandas.read_csv(\
-                                 currFname, delim_whitespace=True,\
-                                infer_datetime_format=True,\
-                                parse_dates=["date"] )
-            else:
-                print "file not found-->", currFname
+        # Very similar to what we do for SSUSI
+        # except we just have one sat.
+        currFname = inpDir + currDtStr + ".txt"
+        # check if file exists
+        if os.path.exists( currFname ):
+            print "reading data from--->", currFname
+            self.frames[ "timed" ] = pandas.read_csv(\
+                             currFname, delim_whitespace=True,\
+                            infer_datetime_format=True,\
+                            parse_dates=["date"] )
+        else:
+            print "file not found-->", currFname
 
     def get_pole_times(self, hemi="north"):
         """
@@ -67,35 +63,36 @@ class UtilsSsusi(object):
         # Return a dict of poleTimes
         poleTimesDict = {}
         for key in self.frames.keys():
-            ssusiDF = self.frames[key]
-            if "mlat.1" in ssusiDF.columns:
-                latCols = [col for col in ssusiDF if col.startswith('mlat')]
+            timedDF = self.frames[key]
+            if "mlat.1" in timedDF.columns:
+                latCols = [col for col in timedDF if col.startswith('mlat')]
                      
             else:
-                latCols = [col for col in ssusiDF if col.startswith('glat')]
+                latCols = [col for col in timedDF if col.startswith('glat')]
             selCols = [ "orbitNum", "date" ] + latCols
             # filter out values where no lats greater than 85 are found
-            cutOffLat = 85.
+            cutOffLat = 60.
             if hemi == "north":
                 poleLat = 90.
-                evalStr = "(ssusiDF['{0}'] >" + str( int(cutOffLat) ) + ".)" #
+                evalStr = "(timedDF['{0}'] >" + str( int(cutOffLat) ) + ".)" #
             else:
                 poleLat = -90.
-                evalStr = "(ssusiDF['{0}'] <" + str( int(-1*cutOffLat) ) + ".)" #
-            ssusiDF = ssusiDF[selCols][eval(" | ".join([\
+                evalStr = "(timedDF['{0}'] <" + str( int(-1*cutOffLat) ) + ".)" #
+
+            timedDF = timedDF[selCols][eval(" | ".join([\
                             evalStr.format(col) 
                             for col in latCols]))].reset_index(drop=True)
             # We'll use a simple and naive way to estimate swath closest to
             # the pole, from each glat/mlat col we'll subtract 90(or -90)
             # and sum up the differences and get row with min value.
             for l in latCols:
-                ssusiDF[l] = abs(ssusiDF[l] - poleLat)
-            ssusiDF['coLatSum'] = ssusiDF[latCols].sum(axis=1)
+                timedDF[l] = abs(timedDF[l] - poleLat)
+            timedDF['coLatSum'] = timedDF[latCols].sum(axis=1)
             # groupby orbit to get min colatsum
-            poleTimesDF = ssusiDF[ ["orbitNum", "coLatSum"]\
+            poleTimesDF = timedDF[ ["orbitNum", "coLatSum"]\
                          ].groupby( "orbitNum" ).min().reset_index()
-            poleTimesDF = pandas.merge( poleTimesDF, ssusiDF,\
-                            on=["orbitNum", "coLatSum"] )
+            poleTimesDF = pandas.merge( poleTimesDF, timedDF,\
+                            on=["orbitNum", "coLatSum"], how="inner" )
             # sometimes we get multiple rows for same orbit,
             # so we'll just take the first row
             poleTimesDF = poleTimesDF.groupby('orbitNum').first()
@@ -113,48 +110,48 @@ class UtilsSsusi(object):
         # We'll output the results in a dict
         filteredDict = {}
         for key in self.frames.keys():
-            ssusiDF = self.frames[key]
-            ssusiDF = ssusiDF.fillna(0.)
+            timedDF = self.frames[key]
+            timedDF = timedDF.fillna(0.)
             # get the time ranges that confine
             # inptime and timedelta
             timeMin = inpTime - datetime.timedelta(minutes=timeDelta)
             timeMax = inpTime + datetime.timedelta(minutes=timeDelta)
             # Choose DF rows which lie between timeMin and timeMax
-            ssusiDF = ssusiDF[ (ssusiDF["date"] >= timeMin) &\
-                                (ssusiDF["date"] <= timeMax) ]
+            timedDF = timedDF[ (timedDF["date"] >= timeMin) &\
+                                (timedDF["date"] <= timeMax) ]
             # select data based on hemi
             if hemi == "north":
-                evalStr = "(ssusiDF['{0}'] >" + str( int(filterLat) ) + ".)" #
+                evalStr = "(timedDF['{0}'] >" + str( int(filterLat) ) + ".)" #
                 # select all rows where lats are positive
                 # we'll use the eval func for this purpose
                 # First check if we have MLAT or GLAT coords
                 # we have in the file!
-                filterCol = [col for col in ssusiDF if col.startswith('mlat')]
+                filterCol = [col for col in timedDF if col.startswith('mlat')]
                 if len(filterCol) > 0:
-                    ssusiDF = ssusiDF[eval(" & ".join([\
+                    timedDF = timedDF[eval(" & ".join([\
                             evalStr.format(col) 
                             for col in filterCol]))].reset_index(drop=True)
                 else:
-                    filterCol = [col for col in ssusiDF if col.startswith('glat')]
-                    ssusiDF = ssusiDF[eval(" & ".join([\
+                    filterCol = [col for col in timedDF if col.startswith('glat')]
+                    timedDF = timedDF[eval(" & ".join([\
                             evalStr.format(col) 
                             for col in filterCol]))].reset_index(drop=True)
             else:
-                evalStr = "(ssusiDF['{0}'] <" + str( int(-1*filterLat) ) + ".)" #
+                evalStr = "(timedDF['{0}'] <" + str( int(-1*filterLat) ) + ".)" #
                 filterCol = [col for col in df if col.startswith('mlat')]
                 if len(filterCol) > 0:
-                    ssusiDF = ssusiDF[eval(" & ".join([\
+                    timedDF = timedDF[eval(" & ".join([\
                             evalStr.format(col) 
                             for col in filterCol]))].reset_index(drop=True)
                 else:
-                    filterCol = [col for col in ssusiDF if col.startswith('glat')]
-                    ssusiDF = ssusiDF[eval(" & ".join([\
+                    filterCol = [col for col in timedDF if col.startswith('glat')]
+                    timedDF = timedDF[eval(" & ".join([\
                             evalStr.format(col) 
                             for col in filterCol]))].reset_index(drop=True)
-            if ssusiDF.shape[0] == 0:
+            if timedDF.shape[0] == 0:
                 print "********NO DATA FOUND, CHECK FOR A " +\
                          "DIFFERENT TIME OR INCREASE TIMEDEL********"
-            filteredDict[key] = ssusiDF
+            filteredDict[key] = timedDF
         return filteredDict
 
 
@@ -167,13 +164,13 @@ class UtilsSsusi(object):
         # We'll output the results in a dict
         filteredDict = {}
         for key in self.frames.keys():
-            ssusiDF = self.frames[key]
-            ssusiDF = ssusiDF.fillna(0.)
+            timedDF = self.frames[key]
+            timedDF = timedDF.fillna(0.)
             # get min and max times in each orbit
-            orbitMin = ssusiDF[ ["date", "sat", "orbitNum"] \
+            orbitMin = timedDF[ ["date", "sat", "orbitNum"] \
                         ].groupby(["orbitNum", "sat"]).min().reset_index()
             orbitMin.columns = [ "orbitNum", "sat", "date_min" ]
-            orbitMax = ssusiDF[ ["date", "sat", "orbitNum"] \
+            orbitMax = timedDF[ ["date", "sat", "orbitNum"] \
                         ].groupby(["orbitNum", "sat"]).max().reset_index()
             orbitMax.columns = [ "orbitNum", "sat", "date_max" ]
             orbitDF = pandas.merge( orbitMin, orbitMax,\
@@ -182,35 +179,35 @@ class UtilsSsusi(object):
                  (orbitDF["date_max"] >= inpTime)\
                   ].reset_index(drop=True)
             # Only select the required orbit
-            ssusiDF = ssusiDF.merge( selOrbit, on=[ "orbitNum", "sat" ] )
+            timedDF = timedDF.merge( selOrbit, on=[ "orbitNum", "sat" ] )
             # select data based on hemi
             if hemi == "north":
-                evalStr = "(ssusiDF['{0}'] >" + str( int(filterLat) ) + ".)" #
+                evalStr = "(timedDF['{0}'] >" + str( int(filterLat) ) + ".)" #
                 # select all rows where lats are positive
                 # we'll use the eval func for this purpose
-                filterCol = [col for col in ssusiDF if col.startswith('mlat')]
+                filterCol = [col for col in timedDF if col.startswith('mlat')]
                 if len(filterCol) > 0:
-                    ssusiDF = ssusiDF[eval(" & ".join([\
+                    timedDF = timedDF[eval(" & ".join([\
                             evalStr.format(col) 
                             for col in filterCol]))].reset_index(drop=True)
                 else:
-                    filterCol = [col for col in ssusiDF if col.startswith('glat')]
-                    ssusiDF = ssusiDF[eval(" & ".join([\
+                    filterCol = [col for col in timedDF if col.startswith('glat')]
+                    timedDF = timedDF[eval(" & ".join([\
                             evalStr.format(col) 
                             for col in filterCol]))].reset_index(drop=True)
             else:
-                evalStr = "(ssusiDF['{0}'] <" + str( int(-1*filterLat) ) + ".)" #
+                evalStr = "(timedDF['{0}'] <" + str( int(-1*filterLat) ) + ".)" #
                 filterCol = [col for col in df if col.startswith('mlat')]
                 if len(filterCol) > 0:
-                    ssusiDF = ssusiDF[eval(" & ".join([\
+                    timedDF = timedDF[eval(" & ".join([\
                             evalStr.format(col) 
                             for col in filterCol]))].reset_index(drop=True)
                 else:
-                    filterCol = [col for col in ssusiDF if col.startswith('glat')]
-                    ssusiDF = ssusiDF[eval(" & ".join([\
+                    filterCol = [col for col in timedDF if col.startswith('glat')]
+                    timedDF = timedDF[eval(" & ".join([\
                             evalStr.format(col) 
                             for col in filterCol]))].reset_index(drop=True)
-            filteredDict[key] = ssusiDF
+            filteredDict[key] = timedDF
         return filteredDict
 
     def cart2pol(self, x, y):
@@ -232,58 +229,56 @@ class UtilsSsusi(object):
         return (x, y)
         
     def overlay_sat_data(self, filteredDict, mapHandle, ax,\
-                        satList=["F18", "F17", "F16"], plotType='d135',\
-                        overlayTime=True, overlayTimeInterval=5, timeMarker='o',\
-                        timeMarkerSize=2., timeColor="grey", timeFontSize=8.,\
-                         plotCBar=True, autoScale=True, vmin=0., vmax=1000.,\
-                         plotTitle=True, titleString=None, inpTime=None,\
-                         markSatName=True, coords="mag", ssusiCmap="Greens"):
+                        plotType='d135', overlayTime=True,\
+                        overlayTimeInterval=5, timeMarker='o',\
+                        timeMarkerSize=2., timeColor="grey",\
+                         timeFontSize=8., plotCBar=True, autoScale=True,\
+                          vmin=0., vmax=1000., plotTitle=True,\
+                          titleString=None, inpTime=None,\
+                          coords="mag", ssusiCmap="Greens"):
         """
         Plot SSUSI data on a map
         # overlayTimeInterval is in minutes
         """
         # Loop through and read data
         for key in filteredDict.keys():
-            ssusiDF = filteredDict[key]
-            satNameKey= key[-3:]
-            if satNameKey not in satList:
-                continue
+            timedDF = filteredDict[key]
             # plot according to coords
             # also check if we have MLAT or GLAT coords
             # we have in the file!
             if coords != "geo":
-                if "mlat.1" not in ssusiDF.columns:
+                if "mlat.1" not in timedDF.columns:
                     print "converting from geo to aacgm coordinates"
-                    # ssusiDF = self.convert_aacgm_geo(ssusiDF, a2g=False)    
-                    ssusiDF = ssusiDF.apply(self.convert_aacgm_geo, args=(False,), axis=1)
-                ssusiLats = ssusiDF\
-                                [ssusiDF.columns[pandas.Series(\
-                                ssusiDF.columns).str.startswith('mlat')\
+                    # timedDF = self.convert_aacgm_geo(timedDF, a2g=False)    
+                    timedDF = timedDF.apply(self.convert_aacgm_geo, args=(False,), axis=1)
+                ssusiLats = timedDF\
+                                [timedDF.columns[pandas.Series(\
+                                timedDF.columns).str.startswith('mlat')\
                                 ]].values
-                ssusiLons = ssusiDF\
-                                [ssusiDF.columns[pandas.Series(\
-                                ssusiDF.columns).str.startswith('mlon')\
+                ssusiLons = timedDF\
+                                [timedDF.columns[pandas.Series(\
+                                timedDF.columns).str.startswith('mlon')\
                                 ]].values
-                ssusiDisk = ssusiDF\
-                                [ssusiDF.columns[pandas.Series(\
-                                ssusiDF.columns).str.startswith(plotType)\
+                ssusiDisk = timedDF\
+                                [timedDF.columns[pandas.Series(\
+                                timedDF.columns).str.startswith(plotType)\
                                 ]].values
             else:
-                if "glat.1" not in ssusiDF.columns:
+                if "glat.1" not in timedDF.columns:
                     print "converting from geo to aacgm coordinates"
                     # ssusiDisk = self.convert_aacgm_geo(ssusiDisk, a2g=True)   
-                    ssusiDF = ssusiDF.apply(self.convert_aacgm_geo, args=(True,), axis=1) 
-                ssusiLats = ssusiDF\
-                                [ssusiDF.columns[pandas.Series(\
-                                ssusiDF.columns).str.startswith('glat')\
+                    timedDF = timedDF.apply(self.convert_aacgm_geo, args=(True,), axis=1) 
+                ssusiLats = timedDF\
+                                [timedDF.columns[pandas.Series(\
+                                timedDF.columns).str.startswith('glat')\
                                 ]].values
-                ssusiLons = ssusiDF\
-                                [ssusiDF.columns[pandas.Series(\
-                                ssusiDF.columns).str.startswith('glon')\
+                ssusiLons = timedDF\
+                                [timedDF.columns[pandas.Series(\
+                                timedDF.columns).str.startswith('glon')\
                                 ]].values
-                ssusiDisk = ssusiDF\
-                                [ssusiDF.columns[pandas.Series(\
-                                ssusiDF.columns).str.startswith(plotType)\
+                ssusiDisk = timedDF\
+                                [timedDF.columns[pandas.Series(\
+                                timedDF.columns).str.startswith(plotType)\
                                 ]].values
             # Need to get max and min for the plot
             # we'll round off to the nearest 500
@@ -292,7 +287,7 @@ class UtilsSsusi(object):
                 vmin = 0.
                 vmax = numpy.round( numpy.max( ssusiDisk )/500. )*500.
             xVecs, yVecs = mapHandle(ssusiLons, ssusiLats, coords=coords)
-            ssusiPlot = mapHandle.scatter(xVecs, yVecs, c=ssusiDisk, s=10.,\
+            ssusiPlot = mapHandle.scatter(xVecs, yVecs, c=ssusiDisk, s=75.,\
                        cmap=ssusiCmap, alpha=0.7, zorder=5., \
                                  edgecolor='none', marker="s",\
                                   vmin=vmin, vmax=vmax)
@@ -304,7 +299,7 @@ class UtilsSsusi(object):
             ssusiPlot.set_rasterized(True)
             # overlay time
             if overlayTime:
-                uniqueTimeList = ssusiDF["date"].unique()
+                uniqueTimeList = timedDF["date"].unique()
                 timeDiff = ( uniqueTimeList.max() -\
                              uniqueTimeList.min()\
                               ).astype('timedelta64[m]')
@@ -332,24 +327,24 @@ class UtilsSsusi(object):
                         allDayDatesList.append( currDt )
                     currDt += datetime.timedelta(minutes=overlayTimeInterval)
                 if coords == "mag":
-                    timessusiLats = ssusiDF\
-                            [ssusiDF.columns[pandas.Series(\
-                            ssusiDF.columns).str.startswith('mlat')\
+                    timessusiLats = timedDF\
+                            [timedDF.columns[pandas.Series(\
+                            timedDF.columns).str.startswith('mlat')\
                             ]].values
-                    timessusiLons = ssusiDF\
-                            [ssusiDF.columns[pandas.Series(\
-                            ssusiDF.columns).str.startswith('mlon')\
+                    timessusiLons = timedDF\
+                            [timedDF.columns[pandas.Series(\
+                            timedDF.columns).str.startswith('mlon')\
                             ]].values
                 else:
-                    timessusiLats = ssusiDF\
-                            [ssusiDF.columns[pandas.Series(\
-                            ssusiDF.columns).str.startswith('glat')\
+                    timessusiLats = timedDF\
+                            [timedDF.columns[pandas.Series(\
+                            timedDF.columns).str.startswith('glat')\
                             ]].values
-                    timessusiLons = ssusiDF\
-                            [ssusiDF.columns[pandas.Series(\
-                            ssusiDF.columns).str.startswith('glon')\
+                    timessusiLons = timedDF\
+                            [timedDF.columns[pandas.Series(\
+                            timedDF.columns).str.startswith('glon')\
                             ]].values
-                timeSSusiTimes = ssusiDF["date"].values
+                timeSSusiTimes = timedDF["date"].values
                 satTSArr = (timeSSusiTimes - \
                             numpy.datetime64('1970-01-01T00:00:00Z')\
                             ) / numpy.timedelta64(1, 's')
@@ -374,8 +369,6 @@ class UtilsSsusi(object):
                         timeStr = allDayDatesList[dd].strftime("%H:%M")
                         # Write Sat names used in plotting
                         if pixel == 0:
-                            if markSatName:
-                                timeStr = timeStr + " (" + satNameKey + ")"
                             timeXVecs, timeYVecs = mapHandle(timePlotLonArr,\
                                  timePlotLatArr, coords=coords)
                             ax.text(timeXVecs, timeYVecs, timeStr,\

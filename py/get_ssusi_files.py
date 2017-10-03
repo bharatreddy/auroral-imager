@@ -11,8 +11,8 @@ if __name__ == "__main__":
     ssDwnldObj = dwnld_ssusi.SSUSIDownload(\
                     outBaseDir = tempFileDir)
     dataTypeList = [ "sdr" ]#, "l1b", "edr-aur" ]
-    currDate = datetime.datetime( 2015, 4, 9 )
-    endDate = datetime.datetime( 2015, 4, 9 )
+    currDate = datetime.datetime( 2011, 4, 9 )
+    endDate = datetime.datetime( 2011, 4, 9 )
     tDelta = datetime.timedelta(days=1)
     while currDate <= endDate:
         print "currently downloading files for --> ",\
