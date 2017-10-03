@@ -11,17 +11,19 @@ import matplotlib.pyplot as plt
 
 
 if __name__ == "__main__":
-    inpDir = "../data/processed/"#"/home/bharat/Documents/code/data/ssusi-prcsd/"
-    fileDate = datetime.datetime( 2014, 12, 16 )#datetime.datetime( 2017, 8, 23 )
-    inpTime = datetime.datetime( 2014, 12, 16, 19, 30 )#datetime.datetime( 2017, 8, 23, 21, 0 )
+    inpDir = "/home/bharat/Documents/code/data/ssusi-prcsd/"
+    fileDate = datetime.datetime( 2015, 4, 9 )#datetime.datetime( 2017, 8, 23 )
+    inpTime = datetime.datetime( 2015, 4, 9, 8, 0 )#datetime.datetime( 2017, 8, 23, 21, 0 )
+    coords="mag"
     ssObj = ssusi_utils.UtilsSsusi( inpDir, fileDate )
-
+    poleTimesDict = ssObj.get_pole_times()
+    print "TIMES WHERE SAT WAS NEAR POLES--->", poleTimesDict
     fDict = ssObj.filter_data_by_time(inpTime, timeDelta=40)
     fig = plt.figure(figsize=(12, 8))
     ax = fig.add_subplot(1,1,1)
-    m = utils.plotUtils.mapObj(boundinglat=40., coords="mag")
+    m = utils.plotUtils.mapObj(boundinglat=40., coords=coords)
     ssObj.overlay_sat_data( fDict, m, ax, satList=["F18"],\
-             inpTime=inpTime, vmin=0., vmax=1000., autoScale=False )
+             inpTime=inpTime, vmin=0., vmax=1000., autoScale=False, coords=coords )
     figName = "../figs/ssusi-sats.pdf" 
     fig.savefig(figName,bbox_inches='tight')
 
@@ -56,6 +58,47 @@ class UtilsSsusi(object):
                                 parse_dates=["date"] )
             else:
                 print "file not found-->", currFname
+
+    def get_pole_times(self, hemi="north"):
+        """
+        From the files, get times during each orbit
+        when the satellite was closest to the pole.
+        """
+        # Return a dict of poleTimes
+        poleTimesDict = {}
+        for key in self.frames.keys():
+            ssusiDF = self.frames[key]
+            print "key!", key
+            if "mlat.1" in ssusiDF.columns:
+                latCols = [col for col in ssusiDF if col.startswith('mlat')]
+                     
+            else:
+                latCols = [col for col in ssusiDF if col.startswith('glat')]
+            selCols = [ "orbitNum", "date" ] + latCols
+            # filter out values where no lats greater than 85 are found
+            cutOffLat = 85.
+            if hemi == "north":
+                poleLat = 90.
+                evalStr = "(ssusiDF['{0}'] >" + str( int(cutOffLat) ) + ".)" #
+            else:
+                poleLat = -90.
+                evalStr = "(ssusiDF['{0}'] <" + str( int(-1*cutOffLat) ) + ".)" #
+            ssusiDF = ssusiDF[selCols][eval(" | ".join([\
+                            evalStr.format(col) 
+                            for col in latCols]))].reset_index(drop=True)
+            # We'll use a simple and naive way to estimate swath closest to
+            # the pole, from each glat/mlat col we'll subtract 90(or -90)
+            # and sum up the differences and get row with min value.
+            for l in latCols:
+                ssusiDF[l] = abs(ssusiDF[l] - poleLat)
+            ssusiDF['coLatSum'] = ssusiDF[latCols].sum(axis=1)
+            # groupby orbit to get min colatsum
+            poleTimesDF = ssusiDF[ ["orbitNum", "coLatSum"]\
+                         ].groupby( "orbitNum" ).min().reset_index()
+            poleTimesDF = pandas.merge( poleTimesDF, ssusiDF,\
+                            on=["orbitNum", "coLatSum"] )
+            poleTimesDict[key] = poleTimesDF["date"].values
+        return poleTimesDict
 
     def filter_data_by_time(self, inpTime, hemi="north",\
              timeDelta=20, filterLat=40.):
@@ -192,7 +235,7 @@ class UtilsSsusi(object):
                         timeMarkerSize=2., timeColor="grey", timeFontSize=8.,\
                          plotCBar=True, autoScale=True, vmin=0., vmax=1000.,\
                          plotTitle=True, titleString=None, inpTime=None,\
-                         markSatName=True, coords="mag"):
+                         markSatName=True, coords="mag", ssusiCmap="Greens"):
         """
         Plot SSUSI data on a map
         # overlayTimeInterval is in minutes
@@ -206,10 +249,11 @@ class UtilsSsusi(object):
             # plot according to coords
             # also check if we have MLAT or GLAT coords
             # we have in the file!
-            if coords != "geog":
+            if coords != "geo":
                 if "mlat.1" not in ssusiDF.columns:
-                    print "converting from geog to aacgm coordinates"
-                    ssusiDisk = self.convert_aacgm_geo(ssusiDisk, a2g=False)    
+                    print "converting from geo to aacgm coordinates"
+                    # ssusiDF = self.convert_aacgm_geo(ssusiDF, a2g=False)    
+                    ssusiDF = ssusiDF.apply(self.convert_aacgm_geo, args=(False,), axis=1)
                 ssusiLats = ssusiDF\
                                 [ssusiDF.columns[pandas.Series(\
                                 ssusiDF.columns).str.startswith('mlat')\
@@ -224,8 +268,9 @@ class UtilsSsusi(object):
                                 ]].values
             else:
                 if "glat.1" not in ssusiDF.columns:
-                    print "converting from geog to aacgm coordinates"
-                    ssusiDisk = self.convert_aacgm_geo(ssusiDisk, a2g=True)    
+                    print "converting from geo to aacgm coordinates"
+                    # ssusiDisk = self.convert_aacgm_geo(ssusiDisk, a2g=True)   
+                    ssusiDF = ssusiDF.apply(self.convert_aacgm_geo, args=(True,), axis=1) 
                 ssusiLats = ssusiDF\
                                 [ssusiDF.columns[pandas.Series(\
                                 ssusiDF.columns).str.startswith('glat')\
@@ -246,7 +291,7 @@ class UtilsSsusi(object):
                 vmax = numpy.round( numpy.max( ssusiDisk )/500. )*500.
             xVecs, yVecs = mapHandle(ssusiLons, ssusiLats, coords=coords)
             ssusiPlot = mapHandle.scatter(xVecs, yVecs, c=ssusiDisk, s=10.,\
-                       cmap="Greens", alpha=0.7, zorder=5., \
+                       cmap=ssusiCmap, alpha=0.7, zorder=5., \
                                  edgecolor='none', marker="s",\
                                   vmin=vmin, vmax=vmax)
             # p = mapHandle.pcolormesh(ssusiLats, ssusiLons,\
@@ -266,7 +311,10 @@ class UtilsSsusi(object):
                 # get a list of times every timeinterval
                 # for the given day
                 nextDayTime = self.fileDate + datetime.timedelta(days=1)
-                currDt = self.fileDate
+                # for some early orbits, there might be values from
+                # the previous day! so our date starts a day earlier
+                # than the date of the file.
+                currDt = self.fileDate - datetime.timedelta(days=1)
                 allDayDatesList = []
                 allDayTSList = []
                 minDate = datetime.datetime.utcfromtimestamp(\
@@ -348,26 +396,24 @@ class UtilsSsusi(object):
                         print "***********NEED INPTIME FOR TITLE***********"
             
 
-    def convert_aacgm_geo(self, ssusiDF, a2g=False):
+    def convert_aacgm_geo(self, row, a2g=False):
         """
         For the SSUSI DF convert all the 42
         Given glat, glon and date return
         mlat, mlon and mlt
         """
-        for i in range( ssusiDF['shapeArr'].iloc[0] ):
+        for i in range( row["shapeArr"] ):
             indStr = str(i+1)
             if a2g:
-                glat, glon = aacgmv2.convert( ssusiDF["mlat." + indStr], ssusiDF["mlon." + indStr],\
-                               300, ssusiDF["date"], a2g=a2g )
-            else:    
-                mlat, mlon = aacgmv2.convert( ssusiDF["glat." + indStr], ssusiDF["glon." + indStr],\
-                                   300, ssusiDF["date"] )
-                mlt = aacgmv2.convert_mlt(mlon, ssusiDF["date"].values, m2a=False)
-
+                glat, glon = aacgmv2.convert(row["mlat." + indStr], row["mlon." + indStr],\
+                               300, row["date"], a2g=a2g)
+                row["glat." + indStr] = numpy.round( glat, 2)
+                row["glon." + indStr] = numpy.round( glon, 2)
+            else:
                 mlat, mlon = aacgmv2.convert(row["glat." + indStr], row["glon." + indStr],\
                                    300, row["date"])
                 mlt = aacgmv2.convert_mlt(mlon, row["date"], m2a=False)
                 row["mlat." + indStr] = numpy.round( mlat, 2)
                 row["mlon." + indStr] = numpy.round( mlon, 2)
                 row["mlt." + indStr] = numpy.round( mlt, 2)
-        return ssusiDF
+        return row
