@@ -14,14 +14,14 @@ if __name__ == "__main__":
     inpDir = "/home/bharat/Documents/code/data/ssusi-prcsd/"
     fileDate = datetime.datetime( 2015, 4, 9 )#datetime.datetime( 2017, 8, 23 )
     inpTime = datetime.datetime( 2015, 4, 9, 8, 0 )#datetime.datetime( 2017, 8, 23, 21, 0 )
-    coords="mag"
+    coords="mlt"
     ssObj = ssusi_utils.UtilsSsusi( inpDir, fileDate )
     poleTimesDict = ssObj.get_pole_times()
     print "TIMES WHERE SAT WAS NEAR POLES--->", poleTimesDict
     fDict = ssObj.filter_data_by_time(inpTime, timeDelta=40)
     fig = plt.figure(figsize=(12, 8))
     ax = fig.add_subplot(1,1,1)
-    m = utils.plotUtils.mapObj(boundinglat=40., coords=coords)
+    m = utils.plotUtils.mapObj(boundinglat=40., coords=coords, datetime=inpTime)
     ssObj.overlay_sat_data( fDict, m, ax, satList=["F18"],\
              inpTime=inpTime, vmin=0., vmax=1000., autoScale=False, coords=coords )
     figName = "../figs/ssusi-sats.pdf" 
@@ -236,7 +236,7 @@ class UtilsSsusi(object):
                         overlayTime=True, overlayTimeInterval=5, timeMarker='o',\
                         timeMarkerSize=2., timeColor="grey", timeFontSize=8.,\
                          plotCBar=True, autoScale=True, vmin=0., vmax=1000.,\
-                         plotTitle=True, titleString=None, inpTime=None,\
+                         plotTitle=True, titleString=None, inpTime=None,alpha=0.5,\
                          markSatName=True, coords="mag", ssusiCmap="Greens"):
         """
         Plot SSUSI data on a map
@@ -260,10 +260,16 @@ class UtilsSsusi(object):
                                 [ssusiDF.columns[pandas.Series(\
                                 ssusiDF.columns).str.startswith('mlat')\
                                 ]].values
-                ssusiLons = ssusiDF\
-                                [ssusiDF.columns[pandas.Series(\
-                                ssusiDF.columns).str.startswith('mlon')\
-                                ]].values
+                if coords == "mag":
+                    ssusiLons = ssusiDF\
+                                    [ssusiDF.columns[pandas.Series(\
+                                    ssusiDF.columns).str.startswith('mlon')\
+                                    ]].values
+                else:
+                    ssusiLons = ssusiDF\
+                                    [ssusiDF.columns[pandas.Series(\
+                                    ssusiDF.columns).str.startswith('mlt')\
+                                    ]].values * 15.
                 ssusiDisk = ssusiDF\
                                 [ssusiDF.columns[pandas.Series(\
                                 ssusiDF.columns).str.startswith(plotType)\
@@ -292,15 +298,14 @@ class UtilsSsusi(object):
                 vmin = 0.
                 vmax = numpy.round( numpy.max( ssusiDisk )/500. )*500.
             xVecs, yVecs = mapHandle(ssusiLons, ssusiLats, coords=coords)
-            ssusiPlot = mapHandle.scatter(xVecs, yVecs, c=ssusiDisk, s=10.,\
-                       cmap=ssusiCmap, alpha=0.7, zorder=5., \
-                                 edgecolor='none', marker="s",\
-                                  vmin=vmin, vmax=vmax)
-            # p = mapHandle.pcolormesh(ssusiLats, ssusiLons,\
-            #                 ssusiDisk,\
-            #                 latlon=True, zorder=1.9,
-            #                 vmin=0, vmax=vmax,
-            #                 ax=ax, alpha=1, cmap='Greens')
+            # ssusiPlot = mapHandle.scatter(xVecs, yVecs, c=ssusiDisk, s=10.,\
+            #            cmap=ssusiCmap, alpha=0.7, zorder=5., \
+            #                      edgecolor='none', marker="s",\
+            #                       vmin=vmin, vmax=vmax)
+            ssusiPlot = mapHandle.pcolormesh(xVecs, yVecs,\
+                            ssusiDisk, zorder=1.9,
+                            vmin=0, vmax=vmax,
+                            ax=ax, alpha=alpha, cmap='Greens')
             ssusiPlot.set_rasterized(True)
             # overlay time
             if overlayTime:
@@ -340,6 +345,15 @@ class UtilsSsusi(object):
                             [ssusiDF.columns[pandas.Series(\
                             ssusiDF.columns).str.startswith('mlon')\
                             ]].values
+                elif coords == "mlt":
+                    timessusiLats = ssusiDF\
+                            [ssusiDF.columns[pandas.Series(\
+                            ssusiDF.columns).str.startswith('mlat')\
+                            ]].values
+                    timessusiLons = ssusiDF\
+                            [ssusiDF.columns[pandas.Series(\
+                            ssusiDF.columns).str.startswith('mlt')\
+                            ]].values * 15.
                 else:
                     timessusiLats = ssusiDF\
                             [ssusiDF.columns[pandas.Series(\

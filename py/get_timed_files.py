@@ -10,8 +10,8 @@ if __name__ == "__main__":
     satList = [ "f16", "f17", "f18" ]
     tgDwnldObj = dwnld_timed_guvi.TimedGuviDownload(\
                     outBaseDir = tempFileDir)
-    currDate = datetime.datetime( 2005, 8, 6 )
-    endDate = datetime.datetime( 2005, 8, 6 )
+    currDate = datetime.datetime( 2002, 3, 18 )
+    endDate = datetime.datetime( 2002, 3, 18 )
     tDelta = datetime.timedelta(days=1)
     while currDate <= endDate:
         print "currently downloading files for --> ",\

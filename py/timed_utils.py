@@ -12,18 +12,18 @@ import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
     inpDir = "/home/bharat/Documents/code/data/timed-prcsd/"
-    fileDate = datetime.datetime( 2005, 8, 6 )
-    inpTime = datetime.datetime( 2005, 8, 6, 5, 30 )
-    coords="mag"
+    fileDate = datetime.datetime( 2002, 3, 18 )
+    inpTime = datetime.datetime( 2002, 3, 18, 16, 30 )
+    coords="mlt"
     tgObj = timed_utils.UtilsTimedGuvi( inpDir, fileDate )
     poleTimesDict = tgObj.get_pole_times()
     # print "TIMES WHERE SAT WAS NEAR POLES--->", poleTimesDict
     fDict = tgObj.filter_data_by_time(inpTime, timeDelta=40)
     fig = plt.figure(figsize=(12, 8))
     ax = fig.add_subplot(1,1,1)
-    m = utils.plotUtils.mapObj(boundinglat=40., coords=coords)
+    m = utils.plotUtils.mapObj(boundinglat=40., coords=coords, datetime=inpTime)
     tgObj.overlay_sat_data( fDict, m, ax,\
-             inpTime=inpTime, vmin=0., vmax=500., autoScale=False, coords=coords )
+             inpTime=inpTime, vmin=0., vmax=1500., autoScale=False, coords=coords )
     figName = "../figs/timed.pdf" 
     fig.savefig(figName,bbox_inches='tight')
 
@@ -234,7 +234,7 @@ class UtilsTimedGuvi(object):
                         timeMarkerSize=2., timeColor="grey",\
                          timeFontSize=8., plotCBar=True, autoScale=True,\
                           vmin=0., vmax=1000., plotTitle=True,\
-                          titleString=None, inpTime=None,\
+                          titleString=None, inpTime=None,alpha=0.6,\
                           coords="mag", ssusiCmap="Greens"):
         """
         Plot SSUSI data on a map
@@ -251,32 +251,42 @@ class UtilsTimedGuvi(object):
                     print "converting from geo to aacgm coordinates"
                     # timedDF = self.convert_aacgm_geo(timedDF, a2g=False)    
                     timedDF = timedDF.apply(self.convert_aacgm_geo, args=(False,), axis=1)
-                ssusiLats = timedDF\
+                timedLats = timedDF\
                                 [timedDF.columns[pandas.Series(\
                                 timedDF.columns).str.startswith('mlat')\
                                 ]].values
-                ssusiLons = timedDF\
-                                [timedDF.columns[pandas.Series(\
-                                timedDF.columns).str.startswith('mlon')\
-                                ]].values
-                ssusiDisk = timedDF\
+                if coords == "mag":
+                    timedLons = timedDF\
+                                    [timedDF.columns[pandas.Series(\
+                                    timedDF.columns).str.startswith('mlon')\
+                                    ]].values
+                else:
+                    # Some changes for MLT plotting
+                    # NOTE in davitpy MLT is in degrees 
+                    # (between 0 and 360.). So we multiply
+                    # MLT values by 15 to convert to degrees.
+                    timedLons = timedDF\
+                                    [timedDF.columns[pandas.Series(\
+                                    timedDF.columns).str.startswith('mlt')\
+                                    ]].values * 15.
+                timedDisk = timedDF\
                                 [timedDF.columns[pandas.Series(\
                                 timedDF.columns).str.startswith(plotType)\
                                 ]].values
             else:
                 if "glat.1" not in timedDF.columns:
                     print "converting from geo to aacgm coordinates"
-                    # ssusiDisk = self.convert_aacgm_geo(ssusiDisk, a2g=True)   
+                    # timedDisk = self.convert_aacgm_geo(timedDisk, a2g=True)   
                     timedDF = timedDF.apply(self.convert_aacgm_geo, args=(True,), axis=1) 
-                ssusiLats = timedDF\
+                timedLats = timedDF\
                                 [timedDF.columns[pandas.Series(\
                                 timedDF.columns).str.startswith('glat')\
                                 ]].values
-                ssusiLons = timedDF\
+                timedLons = timedDF\
                                 [timedDF.columns[pandas.Series(\
                                 timedDF.columns).str.startswith('glon')\
                                 ]].values
-                ssusiDisk = timedDF\
+                timedDisk = timedDF\
                                 [timedDF.columns[pandas.Series(\
                                 timedDF.columns).str.startswith(plotType)\
                                 ]].values
@@ -285,18 +295,17 @@ class UtilsTimedGuvi(object):
             # and keep a cap of 1000.
             if autoScale:
                 vmin = 0.
-                vmax = numpy.round( numpy.max( ssusiDisk )/500. )*500.
-            xVecs, yVecs = mapHandle(ssusiLons, ssusiLats, coords=coords)
-            ssusiPlot = mapHandle.scatter(xVecs, yVecs, c=ssusiDisk, s=75.,\
-                       cmap=ssusiCmap, alpha=0.7, zorder=5., \
-                                 edgecolor='none', marker="s",\
-                                  vmin=vmin, vmax=vmax)
-            # p = mapHandle.pcolormesh(ssusiLats, ssusiLons,\
-            #                 ssusiDisk,\
-            #                 latlon=True, zorder=1.9,
-            #                 vmin=0, vmax=vmax,
-            #                 ax=ax, alpha=1, cmap='Greens')
-            ssusiPlot.set_rasterized(True)
+                vmax = numpy.round( numpy.max( timedDisk )/500. )*500.
+            xVecs, yVecs = mapHandle(timedLons, timedLats, coords=coords)
+            # timedPlot = mapHandle.scatter(xVecs, yVecs, c=timedDisk, s=75.,\
+            #            cmap=ssusiCmap, alpha=0.7, zorder=5., \
+            #                      edgecolor='none', marker="s",\
+            #                       vmin=vmin, vmax=vmax)
+            timedPlot = mapHandle.pcolormesh(xVecs, yVecs,\
+                            timedDisk, zorder=1.9,
+                            vmin=0, vmax=vmax,
+                            ax=ax, alpha=alpha, cmap=ssusiCmap)
+            # timedPlot.set_rasterized(True)
             # overlay time
             if overlayTime:
                 uniqueTimeList = timedDF["date"].unique()
@@ -327,20 +336,29 @@ class UtilsTimedGuvi(object):
                         allDayDatesList.append( currDt )
                     currDt += datetime.timedelta(minutes=overlayTimeInterval)
                 if coords == "mag":
-                    timessusiLats = timedDF\
+                    timetimedLats = timedDF\
                             [timedDF.columns[pandas.Series(\
                             timedDF.columns).str.startswith('mlat')\
                             ]].values
-                    timessusiLons = timedDF\
+                    timetimedLons = timedDF\
                             [timedDF.columns[pandas.Series(\
                             timedDF.columns).str.startswith('mlon')\
                             ]].values
+                elif coords == "mlt":
+                    timetimedLats = timedDF\
+                            [timedDF.columns[pandas.Series(\
+                            timedDF.columns).str.startswith('mlat')\
+                            ]].values
+                    timetimedLons = timedDF\
+                            [timedDF.columns[pandas.Series(\
+                            timedDF.columns).str.startswith('mlt')\
+                            ]].values * 15.
                 else:
-                    timessusiLats = timedDF\
+                    timetimedLats = timedDF\
                             [timedDF.columns[pandas.Series(\
                             timedDF.columns).str.startswith('glat')\
                             ]].values
-                    timessusiLons = timedDF\
+                    timetimedLons = timedDF\
                             [timedDF.columns[pandas.Series(\
                             timedDF.columns).str.startswith('glon')\
                             ]].values
@@ -350,9 +368,9 @@ class UtilsTimedGuvi(object):
                             ) / numpy.timedelta64(1, 's')
                 # Interpolate the values to get times
                 for dd in range( len(allDayDatesList) ):
-                    for pixel in range(timessusiLons.shape[1]):
-                        currPixelMlons = timessusiLons[:,pixel]
-                        currPixelMlats = timessusiLats[:,pixel]
+                    for pixel in range(timetimedLons.shape[1]):
+                        currPixelMlons = timetimedLons[:,pixel]
+                        currPixelMlats = timetimedLats[:,pixel]
                         (x,y) = self.pol2cart( currPixelMlats, currPixelMlons )
                         # xArr = numpy.interp(allDayTSList[dd], satTSArr, x)
                         # yArr = numpy.interp(allDayTSList[dd], satTSArr, y)
@@ -377,7 +395,7 @@ class UtilsTimedGuvi(object):
                                  clip_on=True, zorder=7.)
             # plot colorbar
             if plotCBar:
-                cbar = plt.colorbar(ssusiPlot, orientation='vertical')
+                cbar = plt.colorbar(timedPlot, orientation='vertical')
                 cbar.set_label('Rayleighs', size=14)
             # Title
             if plotTitle:
